@@ -88,5 +88,6 @@ cdef extern from "sys/mount.h":
         char f_mntonname[MNAMELEN]
 
     int getmntinfo(statfs** mntbufp, int flags)
+    int c_statfs "statfs" (const char* path, statfs* buf);
     int nmount(iovec* iov, u_int niov, int flags)
     int unmount(const char* dir, int flags)

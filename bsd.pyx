@@ -49,12 +49,18 @@ class MountFlags(enum.IntEnum):
     NOATIME = defs.MNT_NOATIME
     NOCLUSTERR = defs.MNT_NOCLUSTERR
     NOCLUSTERW = defs.MNT_NOCLUSTERW
-    SUJ = defs.MNT_SUJ
-    AUTOMOUNTED = defs.MNT_AUTOMOUNTED
 
 
 cdef class MountPoint(object):
     cdef defs.statfs* statfs
+    cdef bint free
+
+    def __cinit__(self):
+        self.free = False
+
+    def __dealloc__(self):
+        if self.free:
+            free(self.statfs)
 
     def __str__(self):
         return "<bsd.MountPoint '{0}' on '{1}' type '{2}'>".format(self.source, self.dest, self.fstype)
@@ -139,6 +145,21 @@ def getmntinfo():
         mnt = MountPoint.__new__(MountPoint)
         mnt.statfs = &mntbuf[i]
         yield mnt
+
+
+def statfs(path):
+    cdef MountPoint mnt
+    cdef defs.statfs* statfs
+
+    statfs = <defs.statfs*>malloc(cython.sizeof(defs.statfs))
+
+    if defs.c_statfs(path, statfs) != 0:
+        raise OSError(errno, strerror(errno))
+
+    mnt = MountPoint.__new__(MountPoint)
+    mnt.statfs = statfs
+    mnt.free = True
+    return mnt
 
 
 def nmount(**kwargs):
