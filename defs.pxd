@@ -27,6 +27,12 @@
 from libc.stdint cimport *
 
 
+cdef extern from "sys/uio.h":
+    cdef struct iovec:
+        void* iov_base
+        size_t iov_len
+
+
 cdef extern from "sys/mount.h":
     enum:
         MNAMELEN
@@ -50,13 +56,12 @@ cdef extern from "sys/mount.h":
         MNT_NOATIME
         MNT_NOCLUSTERR
         MNT_NOCLUSTERW
-        MNT_SUJ
-        MNT_AUTOMOUNTED
 
     ctypedef struct fsid_t:
         int32_t val[2]
 
     ctypedef int uid_t
+    ctypedef unsigned int u_int
 
     cdef struct statfs:
         uint32_t f_version
@@ -83,3 +88,5 @@ cdef extern from "sys/mount.h":
         char f_mntonname[MNAMELEN]
 
     int getmntinfo(statfs** mntbufp, int flags)
+    int nmount(iovec* iov, u_int niov, int flags)
+    int unmount(const char* dir, int flags)

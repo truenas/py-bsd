@@ -25,8 +25,10 @@
 #
 
 import enum
+import cython
 from libc.string cimport strerror
 from libc.errno cimport errno
+from libc.stdlib cimport malloc, free
 cimport defs
 
 
@@ -139,12 +141,36 @@ def getmntinfo():
         yield mnt
 
 
-def nmount():
-    pass
+def nmount(**kwargs):
+    cdef defs.iovec* iov
+
+    flags = kwargs.pop('flags', 0)
+
+    if 'source' in kwargs:
+        kwargs['from'] = kwargs.pop('source')
+
+    i = 0
+    iov = <defs.iovec*>malloc(cython.sizeof(defs.iovec) * len(kwargs) * 2)
+    for k, v in kwargs.items():
+        k = k.encode('ascii', 'ignore')
+        iov[i].iov_base = <void*>(<char*>k)
+        iov[i].iov_len = len(k) + 1
+        i += 1
+
+        v = k.encode('ascii', 'ignore')
+        iov[i].iov_base = <void*>(<char*>v)
+        iov[i].iov_len = len(v) + 1
+        i += 1
+
+    if defs.nmount(iov, i, flags) != 0:
+        raise OSError(errno, strerror(errno))
+
+    free(iov)
 
 
-def unmount(dir, flags):
-    pass
+def unmount(dir, flags=0):
+    if defs.unmount(dir, flags) != 0:
+        raise OSError(errno, strerror(errno))
 
 
 def bitmask_to_set(n, enumeration):

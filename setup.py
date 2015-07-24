@@ -30,7 +30,7 @@ from Cython.Build import cythonize
 
 
 extensions = [
-    Extension("bsd", ["bsd.pyx"], extra_compile_args=["-g"])
+    Extension("bsd", ["bsd.pyx"], extra_compile_args=["-g", "-O0"])
 ]
 
 
