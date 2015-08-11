@@ -37,5 +37,6 @@ extensions = [
 setup(
     name='bsd',
     version='1.0',
-    ext_modules=cythonize(extensions)
+    ext_modules=cythonize(extensions),
+    py_modules=['geom']
 )
