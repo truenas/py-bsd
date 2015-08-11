@@ -34,7 +34,7 @@ _classes = {}
 _geoms = {}
 
 
-class GEOMClass(object):
+class GEOMBase(object):
     def __init__(self, xml):
         self.xml = xml
 
@@ -42,6 +42,8 @@ class GEOMClass(object):
     def id(self):
         return self.xml.attrib['id']
 
+
+class GEOMClass(GEOMBase):
     @property
     def name(self):
         return self.xml.find('name').text
@@ -52,7 +54,7 @@ class GEOMClass(object):
             yield GEOMObject(i)
 
     def __str__(self):
-        return "<geom.GEOMClass '{0}'>".format(self.name)
+        return "<geom.GEOMClass name '{0}' id '{1}'>".format(self.name, self.id)
 
     def __repr__(self):
         return str(self)
@@ -64,14 +66,7 @@ class GEOMClass(object):
         }
 
 
-class GEOMObject(object):
-    def __init__(self, xml):
-        self.xml = xml
-
-    @property
-    def id(self):
-        return self.xml.attrib['id']
-
+class GEOMObject(GEOMBase):
     @property
     def name(self):
         return self.xml.find('name').text
@@ -97,7 +92,7 @@ class GEOMObject(object):
     @property
     def config(self):
         config = self.xml.find('config')
-        if config:
+        if config is not None:
             return {i.tag: i.text for i in config}
 
         return None
@@ -119,10 +114,7 @@ class GEOMObject(object):
         }
 
 
-class GEOMProvider(object):
-    def __init__(self, xml):
-        self.xml = xml
-
+class GEOMProvider(GEOMBase):
     @property
     def geom(self):
         return geom_by_id(self.xml.find('geom').attrib['ref'])
@@ -138,13 +130,13 @@ class GEOMProvider(object):
     @property
     def config(self):
         config = self.xml.find('config')
-        if config:
+        if config is not None:
             return {i.tag: i.text for i in config}
 
         return None
 
     def __str__(self):
-        return "<geom.GEOMProvider name '{0}'>".format(self.name)
+        return "<geom.GEOMProvider name '{0}' id '{1}'>".format(self.name, self.id)
 
     def __repr__(self):
         return str(self)
@@ -158,10 +150,7 @@ class GEOMProvider(object):
         }
 
 
-class GEOMConsumer(object):
-    def __init__(self, xml):
-        self.xml = xml
-
+class GEOMConsumer(GEOMBase):
     @property
     def geom(self):
         return geom_by_id(self.xml.find('geom').attrib['ref'])
@@ -169,6 +158,12 @@ class GEOMConsumer(object):
     @property
     def mode(self):
         return self.xml.find('mode').text
+
+    def __str__(self):
+        return "<geom.GEOMConsumer id '{0}'>".format(self.id)
+
+    def __repr__(self):
+        return str(self)
 
     def __getstate__(self):
         return {
