@@ -128,6 +128,22 @@ class GEOMProvider(GEOMBase):
         return self.xml.find('name').text
 
     @property
+    def mediasize(self):
+        return int(self.xml.find('mediasize').text)
+
+    @property
+    def sectorsize(self):
+        return int(self.xml.find('sectorsize').text)
+
+    @property
+    def stripesize(self):
+        return int(self.xml.find('stripesize').text)
+
+    @property
+    def stripeoffset(self):
+        return int(self.xml.find('stripeoffset').text)
+
+    @property
     def config(self):
         config = self.xml.find('config')
         if config is not None:
@@ -146,6 +162,10 @@ class GEOMProvider(GEOMBase):
             'name': self.name,
             'mode': self.mode,
             'geom_id': self.geom.id,
+            'mediasize': self.mediasize,
+            'sectorsize': self.sectorsize,
+            'stripesize': self.stripesize,
+            'stripeoffset': self.stripeoffset,
             'config': self.config
         }
 
