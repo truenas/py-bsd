@@ -53,6 +53,10 @@ class GEOMClass(GEOMBase):
         for i in self.xml.findall('geom'):
             yield GEOMObject(i)
 
+    def geom_by_name(self, name):
+        ret = list(filter(lambda g: g.name == name, self.geoms))
+        return ret[0] if len(ret) > 0 else None
+
     def __str__(self):
         return "<geom.GEOMClass name '{0}' id '{1}'>".format(self.name, self.id)
 
@@ -212,6 +216,11 @@ def geoms():
 
 def class_by_id(ident):
     return _classes[ident]
+
+
+def class_by_name(name):
+    ret = list(filter(lambda g: g.name == name, _classes.values()))
+    return ret[0] if len(ret) > 0 else None
 
 
 def geom_by_id(ident):
