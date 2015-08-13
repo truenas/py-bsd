@@ -227,5 +227,13 @@ def geom_by_id(ident):
     return _geoms[ident]
 
 
+def geom_by_name(classname, name):
+    cls = class_by_name(classname)
+    if not cls:
+        return None
+
+    return cls.geom_by_name(name)
+
+
 # Do initial scan at module load time
 scan()
