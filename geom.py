@@ -32,6 +32,7 @@ from xml.etree import ElementTree as etree
 
 _classes = {}
 _geoms = {}
+_providers = {}
 
 
 class GEOMBase(object):
@@ -183,6 +184,18 @@ class GEOMConsumer(GEOMBase):
     def mode(self):
         return self.xml.find('mode').text
 
+    @property
+    def provider(self):
+        return provider_by_id(self.xml.find('provider').attrib['ref'])
+
+    @property
+    def config(self):
+        config = self.xml.find('config')
+        if config is not None:
+            return {i.tag: i.text for i in config}
+
+        return None
+
     def __str__(self):
         return "<geom.GEOMConsumer id '{0}'>".format(self.id)
 
@@ -191,7 +204,9 @@ class GEOMConsumer(GEOMBase):
 
     def __getstate__(self):
         return {
-            'geom_id': self.geom.id
+            'geom_id': self.geom.id,
+            'provider_id': self.provider.id,
+            'config': self.config
         }
 
 
@@ -204,6 +219,8 @@ def scan():
         _classes[cls.id] = cls
         for g in cls.geoms:
             _geoms[g.id] = g
+            for p in g.providers:
+                _providers[p.id] = p
 
 
 def classes():
@@ -233,6 +250,10 @@ def geom_by_name(classname, name):
         return None
 
     return cls.geom_by_name(name)
+
+
+def provider_by_id(ident):
+    return _providers[ident]
 
 
 # Do initial scan at module load time
