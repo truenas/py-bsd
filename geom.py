@@ -85,6 +85,10 @@ class GEOMObject(GEOMBase):
         return class_by_id(self.xml.find('class').attrib['ref'])
 
     @property
+    def provider(self):
+        return self.providers.next()
+
+    @property
     def providers(self):
         for i in self.xml.findall('provider'):
             yield GEOMProvider(i)
