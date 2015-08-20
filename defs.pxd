@@ -91,3 +91,11 @@ cdef extern from "sys/mount.h":
     int c_statfs "statfs" (const char* path, statfs* buf);
     int nmount(iovec* iov, u_int niov, int flags)
     int unmount(const char* dir, int flags)
+
+
+cdef extern from "sys/sysctl.h":
+    int sysctl(int *name, unsigned int namelen, void *oldp, size_t *oldlenp,
+        void *newp, size_t newlen)
+    int sysctlbyname(char *name, void *oldp, size_t *oldlenp, void *newp,
+        size_t newlen)
+    int sysctlnametomib(char *name, void *mibp, size_t *sizep)
