@@ -30,14 +30,15 @@ from Cython.Build import cythonize
 
 
 extensions = [
-    Extension("bsd", ["bsd.pyx"], extra_compile_args=["-g", "-O0"]),
-    Extension("sysctl", ["sysctl.pyx"], extra_compile_args=["-g", "-O0"]),
+    Extension("bsd._bsd", ["_bsd.pyx"], extra_compile_args=["-g", "-O0"]),
+    Extension("bsd._sysctl", ["_sysctl.pyx"], extra_compile_args=["-g", "-O0"]),
 ]
 
 
 setup(
     name='bsd',
     version='1.0',
+    packages=['bsd'],
+    package_dir={'bsd' : 'bsd'},
     ext_modules=cythonize(extensions),
-    py_modules=['geom']
 )
