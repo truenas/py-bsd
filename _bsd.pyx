@@ -25,6 +25,7 @@
 #
 
 import enum
+import resource
 import cython
 from libc.string cimport strerror
 from libc.errno cimport errno
@@ -133,6 +134,58 @@ cdef class MountPoint(object):
             return self.statfs.f_fsid.val[0], self.statfs.f_fsid.val[1]
 
 
+cdef class Process(object):
+    cdef defs.kinfo_proc* proc
+    cdef bint free
+
+    def __cinit__(self):
+        self.free = False
+
+    def __dealloc__(self):
+        if self.free:
+            free(self.proc)
+
+    def __getstate__(self):
+        return {
+            'pid': self.pid,
+            'ppid': self.ppid,
+            'command': self.command
+        }
+
+    property pid:
+        def __get__(self):
+            return self.proc.ki_pid
+
+    property ppid:
+        def __get__(self):
+            return self.proc.ki_ppid
+
+    property command:
+        def __get__(self):
+            return self.proc.ki_comm
+
+    property rusage:
+        def __get__(self):
+            return resource.struct_rusage((
+                convert_timeval(&self.proc.ki_rusage.ru_utime),
+                convert_timeval(&self.proc.ki_rusage.ru_stime),
+                self.proc.ki_rusage.ru_maxrss,
+                self.proc.ki_rusage.ru_ixrss,
+                self.proc.ki_rusage.ru_idrss,
+                self.proc.ki_rusage.ru_isrss,
+                self.proc.ki_rusage.ru_minflt,
+                self.proc.ki_rusage.ru_majflt,
+                self.proc.ki_rusage.ru_nswap,
+                self.proc.ki_rusage.ru_inblock,
+                self.proc.ki_rusage.ru_oublock,
+                self.proc.ki_rusage.ru_msgsnd,
+                self.proc.ki_rusage.ru_msgrcv,
+                self.proc.ki_rusage.ru_nsignals,
+                self.proc.ki_rusage.ru_nvcsw,
+                self.proc.ki_rusage.ru_nivcsw,
+            ))
+
+
 def getmntinfo():
     cdef MountPoint mnt
     cdef defs.statfs* mntbuf
@@ -194,6 +247,20 @@ def unmount(dir, flags=0):
         raise OSError(errno, strerror(errno))
 
 
+def kinfo_getproc(pid):
+    cdef Process ret
+    cdef defs.kinfo_proc* proc
+
+    proc = defs.kinfo_getproc(pid)
+    if proc == NULL:
+        raise LookupError("PID {0} not found".format(pid))
+
+    ret = Process.__new__(Process)
+    ret.proc = proc
+    return ret
+
+
+
 def bitmask_to_set(n, enumeration):
     result = set()
     while n:
@@ -214,3 +281,7 @@ def set_to_bitmask(value):
         result |= int(i)
 
     return result
+
+
+cdef double convert_timeval(defs.timeval* tv):
+    return tv.tv_sec + tv.tv_usec * 1e-6

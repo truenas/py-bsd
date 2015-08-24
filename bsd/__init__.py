@@ -49,3 +49,8 @@ def getmntinfo():
 def statfs(path):
     from . import _bsd
     return _bsd.statfs(path)
+
+
+def kinfo_getproc(pid):
+    from . import _bsd
+    return _bsd.kinfo_getproc(pid)

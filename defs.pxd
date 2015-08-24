@@ -17,7 +17,7 @@
 # ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
 # FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
 # DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# OR SERVICES
 # HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
@@ -25,12 +25,23 @@
 #
 
 from libc.stdint cimport *
+from posix.types cimport *
 
 
 cdef extern from "sys/uio.h":
     cdef struct iovec:
         void* iov_base
         size_t iov_len
+
+
+cdef extern from "sys/types.h":
+    ctypedef unsigned char u_char
+    ctypedef unsigned short u_short
+    ctypedef unsigned int u_int
+    ctypedef uint64_t u_int64_t
+    ctypedef int lwpid_t
+    ctypedef uintptr_t segsz_t
+    ctypedef uintptr_t vm_size_t
 
 
 cdef extern from "sys/mount.h":
@@ -88,9 +99,120 @@ cdef extern from "sys/mount.h":
         char f_mntonname[MNAMELEN]
 
     int getmntinfo(statfs** mntbufp, int flags)
-    int c_statfs "statfs" (const char* path, statfs* buf);
+    int c_statfs "statfs" (const char* path, statfs* buf)
     int nmount(iovec* iov, u_int niov, int flags)
     int unmount(const char* dir, int flags)
+
+
+cdef extern from "sys/time.h":
+    cdef struct timeval:
+        time_t tv_sec
+        suseconds_t tv_usec
+
+
+cdef extern from "sys/resource.h":
+    cdef struct rusage:
+        timeval ru_utime
+        timeval ru_stime
+        long ru_maxrss
+        long ru_ixrss
+        long ru_idrss
+        long ru_isrss
+        long ru_minflt
+        long ru_majflt
+        long ru_nswap
+        long ru_inblock
+        long ru_oublock
+        long ru_msgsnd
+        long ru_msgrcv
+        long ru_nsignals
+        long ru_nvcsw
+        long ru_nivcsw
+
+
+cdef extern from "sys/user.h":
+    enum:
+        WMESGLEN
+        LOCKNAMELEN
+        TDNAMLEN
+        COMMLEN
+        KI_EMULNAMELEN
+        KI_NGROUPS
+        LOGNAMELEN
+        LOGINCLASSLEN
+
+    cdef struct kinfo_proc:
+        int	ki_structsize
+        int	ki_layout
+        void	*ki_wchan
+        pid_t	ki_pid
+        pid_t	ki_ppid
+        pid_t	ki_pgid
+        pid_t	ki_tpgid
+        pid_t	ki_sid
+        pid_t	ki_tsid
+        short	ki_jobc
+        short	ki_spare_short1
+        dev_t	ki_tdev
+        sigset_t ki_siglist
+        sigset_t ki_sigmask
+        sigset_t ki_sigignore
+        sigset_t ki_sigcatch
+        uid_t	ki_uid
+        uid_t	ki_ruid
+        uid_t	ki_svuid
+        gid_t	ki_rgid
+        gid_t	ki_svgid
+        short	ki_ngroups
+        short	ki_spare_short2
+        gid_t	ki_groups[KI_NGROUPS]
+        vm_size_t ki_size
+        segsz_t ki_rssize
+        segsz_t ki_swrss
+        segsz_t ki_tsize
+        segsz_t ki_dsize
+        segsz_t ki_ssize
+        u_short	ki_xstat
+        u_short	ki_acflag
+        u_int	ki_estcpu
+        u_int	ki_slptime
+        u_int	ki_swtime
+        u_int	ki_cow
+        u_int64_t ki_runtime
+        timeval ki_start
+        timeval ki_childtime
+        long	ki_flag
+        long	ki_kiflag
+        int	ki_traceflag
+        char	ki_stat
+        signed char ki_nice
+        char	ki_lock
+        char	ki_rqindex
+        u_char	ki_oncpu
+        u_char	ki_lastcpu
+        char	ki_tdname[TDNAMLEN+1]
+        char	ki_wmesg[WMESGLEN+1]
+        char	ki_login[LOGNAMELEN+1]
+        char	ki_lockname[LOCKNAMELEN+1]
+        char	ki_comm[COMMLEN+1]
+        char	ki_emul[KI_EMULNAMELEN+1]
+        char	ki_loginclass[LOGINCLASSLEN+1]
+        int	ki_flag2
+        int	ki_fibnum
+        u_int	ki_cr_flags
+        int	ki_jid
+        int	ki_numthreads
+        lwpid_t	ki_tid
+        rusage ki_rusage
+        rusage ki_rusage_ch
+        void	*ki_kstack
+        void	*ki_udata
+        long	ki_sflag
+        long	ki_tdflags
+
+
+cdef extern from "libutil.h":
+    kinfo_proc* kinfo_getproc(pid_t pid)
 
 
 cdef extern from "sys/sysctl.h":
