@@ -166,24 +166,13 @@ cdef class Process(object):
 
     property rusage:
         def __get__(self):
-            return resource.struct_rusage((
-                convert_timeval(&self.proc.ki_rusage.ru_utime),
-                convert_timeval(&self.proc.ki_rusage.ru_stime),
-                self.proc.ki_rusage.ru_maxrss,
-                self.proc.ki_rusage.ru_ixrss,
-                self.proc.ki_rusage.ru_idrss,
-                self.proc.ki_rusage.ru_isrss,
-                self.proc.ki_rusage.ru_minflt,
-                self.proc.ki_rusage.ru_majflt,
-                self.proc.ki_rusage.ru_nswap,
-                self.proc.ki_rusage.ru_inblock,
-                self.proc.ki_rusage.ru_oublock,
-                self.proc.ki_rusage.ru_msgsnd,
-                self.proc.ki_rusage.ru_msgrcv,
-                self.proc.ki_rusage.ru_nsignals,
-                self.proc.ki_rusage.ru_nvcsw,
-                self.proc.ki_rusage.ru_nivcsw,
-            ))
+            ret = <object>self.proc.ki_rusage
+            ret.update({
+                'ru_utime': convert_timeval(&self.proc.ki_rusage.ru_utime),
+                'ru_stime': convert_timeval(&self.proc.ki_rusage.ru_stime),
+            })
+
+            return ret
 
 
 def getmntinfo():
