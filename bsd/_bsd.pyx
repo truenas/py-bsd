@@ -220,7 +220,7 @@ def nmount(**kwargs):
         iov[i].iov_len = len(k) + 1
         i += 1
 
-        v = k.encode('ascii', 'ignore')
+        v = v.encode('ascii', 'ignore')
         iov[i].iov_base = <void*>(<char*>v)
         iov[i].iov_len = len(v) + 1
         i += 1
