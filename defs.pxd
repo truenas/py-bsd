@@ -64,6 +64,7 @@ cdef extern from "sys/mount.h":
         MNT_NFS4ACLS
         MNT_UNION
         MNT_ASYNC
+        MNT_FORCE
         MNT_SUIDDIR
         MNT_SOFTDEP
         MNT_NOSYMFOLLOW

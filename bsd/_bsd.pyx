@@ -41,6 +41,7 @@ class MountFlags(enum.IntEnum):
     NFS4ACLS = defs.MNT_NFS4ACLS
     UNION = defs.MNT_UNION
     ASYNC = defs.MNT_ASYNC
+    FORCE = defs.MNT_FORCE
     SUIDDIR = defs.MNT_SUIDDIR
     SOFTDEP = defs.MNT_SOFTDEP
     NOSYMFOLLOW = defs.MNT_NOSYMFOLLOW
@@ -213,19 +214,19 @@ def nmount(**kwargs):
         kwargs['from'] = kwargs.pop('source')
 
     i = 0
+    args = []
     iov = <defs.iovec*>malloc(cython.sizeof(defs.iovec) * len(kwargs) * 2)
+
     for k, v in kwargs.items():
-        k = k.encode('ascii', 'ignore')
-        iov[i].iov_base = <void*>(<char*>k)
-        iov[i].iov_len = len(k) + 1
-        i += 1
+        args.append(k.encode('ascii', 'ignore'))
+        args.append(v.encode('ascii', 'ignore'))
 
-        v = v.encode('ascii', 'ignore')
-        iov[i].iov_base = <void*>(<char*>v)
-        iov[i].iov_len = len(v) + 1
-        i += 1
+    for i in range(0, len(args)):
+        iov[i].iov_base = <void*>(<char*>args[i])
+        iov[i].iov_len = len(args[i]) + 1
 
-    if defs.nmount(iov, i, flags) != 0:
+    if defs.nmount(iov, i + 1, flags) != 0:
+        free(iov)
         raise OSError(errno, strerror(errno))
 
     free(iov)
