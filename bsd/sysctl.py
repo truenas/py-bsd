@@ -44,7 +44,8 @@ def sysctlbyname(name, old=True, new=None):
 def sysctlnametomib(name, size=None):
     from . import _sysctl
     if size is None:
-        size = _sysctl.CTLMAXNAME
+        size = _sysctl.CTL_MAXNAME
+
     return _sysctl.sysctlnametomib(name, size)
 
 
