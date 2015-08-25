@@ -33,7 +33,7 @@ inexplicably missing.
 
 def nmount(**kwargs):
     from . import _bsd
-    return _bsd.nmount( kwargs)
+    return _bsd.nmount(**kwargs)
 
 
 def unmount(dir, flags=0):
