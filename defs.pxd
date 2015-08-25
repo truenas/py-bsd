@@ -34,6 +34,11 @@ cdef extern from "sys/uio.h":
         size_t iov_len
 
 
+cdef extern from "sys/param.h":
+    enum:
+        MAXPATHLEN
+
+
 cdef extern from "sys/types.h":
     ctypedef unsigned char u_char
     ctypedef unsigned short u_short
@@ -42,6 +47,7 @@ cdef extern from "sys/types.h":
     ctypedef int lwpid_t
     ctypedef uintptr_t segsz_t
     ctypedef uintptr_t vm_size_t
+    ctypedef char* caddr_t
 
 
 cdef extern from "sys/mount.h":
@@ -221,3 +227,20 @@ cdef extern from "sys/sysctl.h":
     int sysctlbyname(char *name, void *oldp, size_t *oldlenp, void *newp,
         size_t newlen)
     int sysctlnametomib(char *name, void *mibp, size_t *sizep)
+
+
+cdef extern from "sys/linker.h":
+    cdef struct kld_file_stat:
+        int version
+        char name[MAXPATHLEN]
+        int refs
+        int id
+        caddr_t address
+        size_t size
+        char pathname[MAXPATHLEN]
+
+
+    int kldload(const char* file)
+    int kldunload(int fileid)
+    int kldnext(int fileid)
+    int kldstat(int fileid, kld_file_stat* stat)
