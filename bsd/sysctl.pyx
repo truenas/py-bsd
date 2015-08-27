@@ -233,26 +233,11 @@ def sysctlbyname(name, old=True, new=None):
     """
 
     cdef:
-        char *buf
         char *namep
-        char *newp_s
         int *mibp
-        int *namet
-        void *newp
-        void *oldp
-        size_t buflen
-        size_t newlen
-        size_t oldlen
         size_t _size
-        int new_i
-        char c
 
-    buf = NULL
-    buflen = BUFSIZ
     namep = name
-    namet = NULL
-    newp_s = NULL
-    oldp = NULL
     _size = CTL_MAXNAME
 
     if not name:
@@ -267,85 +252,11 @@ def sysctlbyname(name, old=True, new=None):
         if ret == -1:
             raise OSError(errno, os.strerror(errno))
 
-        buf = <char*>malloc(sizeof(char) * BUFSIZ)
-        if not buf:
-            raise MemoryError()
-
-        # Administrative functions for determining the type add an additional
-        # 2 elements to the OID.
-        namet = <int*>malloc(sizeof(int) * (_size + 2))
-        if not namet:
-            raise MemoryError()
-
-        namet[0] = 0
-        namet[1] = 4
-
-        for i in range(_size):
-            namet[i + 2] = mibp[i]
-
-        ret = defs.sysctl(namet, _size + 2, buf, &buflen, NULL, 0)
-        if ret == -1:
-            raise OSError(errno, os.strerror(errno))
-        sysctl_type = (<int*>buf)[0] & CTLTYPE
-
-        if new is None:
-            newp = NULL
-            newlen = 0
-        else:
-            if sysctl_type in CTLTYPE_ALL_INTEGERS:
-                new_i = new
-                newp = <void*>&new_i
-
-                if sysctl_type in CTLTYPE_INTEGERS:
-                    newlen = sizeof(int)
-                else:
-                    newlen = sizeof(long)
-            else:
-                if sysctl_type == CTLTYPE_STRING:
-                    newlen = len(new) + 1
-                else:
-                    newlen = len(new)
-                # String or opaque
-                newp_s = <char*>malloc(sizeof(char) * newlen)
-                if not newp_s:
-                    raise MemoryError()
-                # NOTE: void* cast does the wrong thing here.
-                memcpy(newp_s, <char*>new, newlen)
-                newp = <void*>newp_s
-
-        if old:
-            # Allocate storage for the old data.
-            ret = defs.sysctl(mibp, _size, NULL, &oldlen, NULL, 0)
-            if ret == -1:
-                raise OSError(errno, os.strerror(errno))
-            oldlen += BUFSIZ * 16
-            oldp = malloc(oldlen)
-            if not oldp:
-                raise MemoryError()
-        else:
-            oldp = NULL
-            oldlen = 0
-
-        ret = defs.sysctl(mibp, _size, oldp, &oldlen, newp, newlen)
-        if ret == -1:
-            raise OSError(errno, os.strerror(errno))
-
-        if oldp:
-            if sysctl_type in CTLTYPE_INTEGERS:
-                return (<int*>oldp)[0]
-            elif sysctl_type in CTLTYPE_LONGS:
-                return (<long*>oldp)[0]
-            elif sysctl_type == CTLTYPE_STRING:
-                old_arr = <char*>oldp
-                return old_arr
-            else:
-                return [(<char*>oldp)[i] for i in range(oldlen)]
+        mib = [mibp[i] for i in range(_size)]
+        return sysctl(mib, old, new)
+    
     finally:
-        free(buf)
         free(mibp)
-        free(namet)
-        free(newp_s)
-        free(oldp)
 
 
 def sysctlnametomib(name, size=CTL_MAXNAME):
