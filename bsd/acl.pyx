@@ -83,10 +83,30 @@ class NFS4Perm(enum.IntEnum):
 
 cdef class ACL(object):
     cdef defs.acl_t acl
+    cdef readonly path
+    cdef readonly type
 
-    def __init__(self, file=None, acltype=ACLType.NFS4):
-        if file:
-            self.acl = defs.acl_get_file(file, acltype)
+    def __init__(self, path=None, text=None, acltype=ACLType.NFS4):
+        self.type = acltype
+
+        if path:
+            self.path = file
+            self.acl = defs.acl_get_file(path, acltype)
+            return
+
+        if text:
+            self.text = text
+            return
+
+    def apply(self, path=None):
+        if not path and self.path:
+            path = self.path
+
+        if not path:
+            raise ValueError('Please specify path')
+
+        if defs.acl_set_file(path, self.type, self.acl) != 0:
+            raise OSError(errno, strerror(errno))
 
     property brand:
         def __get__(self):
@@ -118,6 +138,13 @@ cdef class ACL(object):
 
         def __set__(self, text):
             self.acl = defs.acl_from_text(text)
+
+    property valid:
+        def __get__(self):
+            if defs.acl_valid(self.acl) != 0:
+                return True
+
+            return False
 
 
 cdef class ACLEntry(object):
