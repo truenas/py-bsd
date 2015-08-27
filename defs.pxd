@@ -245,3 +245,118 @@ cdef extern from "sys/linker.h":
     int kldunload(int fileid)
     int kldnext(int fileid)
     int kldstat(int fileid, kld_file_stat* stat)
+
+
+cdef extern from "sys/acl.h":
+    enum:
+        ACL_BRAND_UNKNOWN
+        ACL_BRAND_POSIX
+        ACL_BRAND_NFS4
+
+    enum:
+        ACL_TYPE_ACCESS
+        ACL_TYPE_DEFAULT
+        ACL_TYPE_NFS4
+
+    enum:
+        ACL_FIRST_ENTRY
+        ACL_NEXT_ENTRY
+
+    enum:
+        ACL_USER_OBJ
+        ACL_USER
+        ACL_GROUP_OBJ
+        ACL_GROUP
+        ACL_MASK
+        ACL_OTHER
+        ACL_EVERYONE
+
+    ctypedef enum acl_perm_t:
+        ACL_EXECUTE
+        ACL_WRITE
+        ACL_READ
+        ACL_READ_DATA
+        ACL_LIST_DIRECTORY
+        ACL_WRITE_DATA
+        ACL_ADD_FILE
+        ACL_APPEND_DATA
+        ACL_ADD_SUBDIRECTORY
+        ACL_READ_NAMED_ATTRS
+        ACL_WRITE_NAMED_ATTRS
+        ACL_EXECUTE
+        ACL_DELETE_CHILD
+        ACL_READ_ATTRIBUTES
+        ACL_WRITE_ATTRIBUTES
+        ACL_DELETE
+        ACL_READ_ACL
+        ACL_WRITE_ACL
+        ACL_SYNCHRONIZE
+
+    ctypedef struct acl_t:
+        pass
+
+    ctypedef struct acl_entry_t:
+        pass
+
+    ctypedef unsigned int acl_tag_t
+    ctypedef unsigned int acl_perm_t
+    ctypedef unsigned short acl_entry_type_t
+    ctypedef unsigned short acl_flag_t
+    ctypedef int acl_type_t
+    ctypedef int* acl_permset_t
+    ctypedef unsigned short* acl_flagset_t
+
+    int	acl_add_flag_np(acl_flagset_t _flagset_d, acl_flag_t _flag)
+    int	acl_add_perm(acl_permset_t _permset_d, acl_perm_t _perm)
+    int	acl_calc_mask(acl_t *_acl_p)
+    int	acl_clear_flags_np(acl_flagset_t _flagset_d)
+    int	acl_clear_perms(acl_permset_t _permset_d)
+    int	acl_copy_entry(acl_entry_t _dest_d, acl_entry_t _src_d)
+    ssize_t	acl_copy_ext(void *_buf_p, acl_t _acl, ssize_t _size)
+    acl_t acl_copy_int(const void *_buf_p)
+    int	acl_create_entry(acl_t *_acl_p, acl_entry_t *_entry_p)
+    int	acl_create_entry_np(acl_t *_acl_p, acl_entry_t *_entry_p, int _index)
+    int	acl_delete_entry(acl_t _acl, acl_entry_t _entry_d)
+    int	acl_delete_entry_np(acl_t _acl, int _index)
+    int	acl_delete_fd_np(int _filedes, acl_type_t _type)
+    int	acl_delete_file_np(const char *_path_p, acl_type_t _type)
+    int	acl_delete_link_np(const char *_path_p, acl_type_t _type)
+    int	acl_delete_def_file(const char *_path_p)
+    int	acl_delete_def_link_np(const char *_path_p)
+    int	acl_delete_flag_np(acl_flagset_t _flagset_d, acl_flag_t _flag)
+    int	acl_delete_perm(acl_permset_t _permset_d, acl_perm_t _perm)
+    acl_t acl_dup(acl_t _acl)
+    int	acl_free(void *_obj_p)
+    acl_t acl_from_text(const char *_buf_p)
+    int	acl_get_brand_np(acl_t _acl, int *_brand_p)
+    int	acl_get_entry(acl_t _acl, int _entry_id, acl_entry_t *_entry_p)
+    acl_t acl_get_fd(int _fd)
+    acl_t acl_get_fd_np(int fd, acl_type_t _type)
+    acl_t acl_get_file(const char *_path_p, acl_type_t _type)
+    int	acl_get_entry_type_np(acl_entry_t _entry_d, acl_entry_type_t *_entry_type_p)
+    acl_t acl_get_link_np(const char *_path_p, acl_type_t _type)
+    void* acl_get_qualifier(acl_entry_t _entry_d)
+    int	acl_get_flag_np(acl_flagset_t _flagset_d, acl_flag_t _flag)
+    int	acl_get_perm_np(acl_permset_t _permset_d, acl_perm_t _perm)
+    int	acl_get_flagset_np(acl_entry_t _entry_d, acl_flagset_t *_flagset_p)
+    int	acl_get_permset(acl_entry_t _entry_d, acl_permset_t *_permset_p)
+    int	acl_get_tag_type(acl_entry_t _entry_d, acl_tag_t *_tag_type_p)
+    acl_t acl_init(int _count)
+    int	acl_set_fd(int _fd, acl_t _acl)
+    int	acl_set_fd_np(int _fd, acl_t _acl, acl_type_t _type)
+    int	acl_set_file(const char *_path_p, acl_type_t _type, acl_t _acl)
+    int	acl_set_entry_type_np(acl_entry_t _entry_d, acl_entry_type_t _entry_type)
+    int	acl_set_link_np(const char *_path_p, acl_type_t _type, acl_t _acl)
+    int	acl_set_flagset_np(acl_entry_t _entry_d, acl_flagset_t _flagset_d)
+    int	acl_set_permset(acl_entry_t _entry_d, acl_permset_t _permset_d)
+    int	acl_set_qualifier(acl_entry_t _entry_d, const void *_tag_qualifier_p)
+    int	acl_set_tag_type(acl_entry_t _entry_d, acl_tag_t _tag_type)
+    ssize_t	acl_size(acl_t _acl)
+    char* acl_to_text(acl_t _acl, ssize_t *_len_p)
+    char* acl_to_text_np(acl_t _acl, ssize_t *_len_p, int _flags)
+    int	acl_valid(acl_t _acl)
+    int	acl_valid_fd_np(int _fd, acl_type_t _type, acl_t _acl)
+    int	acl_valid_file_np(const char *_path_p, acl_type_t _type, acl_t _acl)
+    int	acl_valid_link_np(const char *_path_p, acl_type_t _type, acl_t _acl)
+    int	acl_is_trivial_np(const acl_t _acl, int *_trivialp)
+    acl_t acl_strip_np(const acl_t _acl, int recalculate_mask)
