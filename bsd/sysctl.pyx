@@ -337,7 +337,7 @@ def sysctlbyname(name, old=True, new=None):
                 return (<long*>oldp)[0]
             elif sysctl_type == CTLTYPE_STRING:
                 old_arr = <char*>oldp
-                return old_arr[:oldlen]
+                return old_arr
             else:
                 return [(<char*>oldp)[i] for i in range(oldlen)]
     finally:
