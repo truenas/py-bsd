@@ -153,6 +153,14 @@ class GEOMProvider(GEOMBase):
         return int(self.xml.find('stripeoffset').text)
 
     @property
+    def description(self):
+        try:
+            d = self.xml.find("config/descr")
+            return d.text
+        except:
+            return None
+    
+    @property
     def config(self):
         config = self.xml.find('config')
         if config is not None:
