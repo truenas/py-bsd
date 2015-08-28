@@ -56,6 +56,11 @@ class ACLEntryTag(enum.IntEnum):
     EVERYONE = defs.ACL_EVERYONE
 
 
+class ACLEntryType(enum.IntEnum):
+    ALLOW = defs.ACL_ENTRY_TYPE_ALLOW
+    DENY = defs.ACL_ENTRY_TYPE_DENY
+
+
 class POSIXPerm(enum.IntEnum):
     EXECUTE = defs.ACL_EXECUTE
     WRITE = defs.ACL_WRITE
@@ -81,6 +86,13 @@ class NFS4Perm(enum.IntEnum):
     SYNCHRONIZE = defs.ACL_SYNCHRONIZE
 
 
+class NFS4Flag(enum.IntEnum):
+    FILE_INHERIT = defs.ACL_ENTRY_FILE_INHERIT
+    DIRECTORY_INHERIT = defs.ACL_ENTRY_DIRECTORY_INHERIT
+    NO_PROPAGATE_INHERIT = defs.ACL_ENTRY_NO_PROPAGATE_INHERIT
+    INHERIT_ONLY = defs.ACL_ENTRY_INHERIT_ONLY
+
+
 cdef class ACL(object):
     cdef defs.acl_t acl
     cdef readonly path
@@ -90,13 +102,16 @@ cdef class ACL(object):
         self.type = acltype
 
         if path:
-            self.path = file
+            self.path = path
             self.acl = defs.acl_get_file(path, acltype)
             return
 
         if text:
             self.text = text
             return
+
+    def __getstate__(self):
+        return [i.__getstate__() for i in self.entries]
 
     def apply(self, path=None):
         if not path and self.path:
@@ -162,7 +177,9 @@ cdef class ACLEntry(object):
             'tag': self.tag,
             'id': self.id,
             'name': self.name,
-            'perms': {k.name: v for k, v in self.perms.items()}
+            'type': self.type.name,
+            'perms': {k.name: v for k, v in self.perms.items()},
+            'flags': {k.name: v for k, v in self.flags.items()}
         }
 
     property tag:
@@ -243,11 +260,45 @@ cdef class ACLEntry(object):
 
             return result
 
+        def __set__(self, ACLPermissionSet value):
+            pass
+
+    property flags:
+        def __get__(self):
+            cdef ACLFlagSet result
+            cdef defs.acl_flagset_t flagset
+
+            if defs.acl_get_flagset_np(self.entry, &flagset) != 0:
+                raise OSError(errno, strerror(errno))
+
+            result = ACLFlagSet.__new__(ACLFlagSet)
+            result.flagset = flagset
+            result.parent = self
+            return result
+
+        def __set__(self, ACLFlagSet value):
+            pass
+
+    property type:
+        def __get__(self):
+            cdef defs.acl_entry_type_t typ
+
+            if defs.acl_get_entry_type_np(self.entry, &typ) != 0:
+                raise OSError(errno, strerror(errno))
+
+            return ACLEntryType(typ)
+
+        def __set__(self, value):
+            pass
+
 
 cdef class ACLPermissionSet(object):
     cdef defs.acl_permset_t permset
     cdef readonly ACLEntry parent
     cdef object perm_enum
+
+    def __init__(self):
+        self.permset = <defs.acl_permset_t>malloc(cython.sizeof(defs.acl_permset_t))
 
     def __getitem__(self, item):
         if item not in self.perm_enum:
@@ -285,4 +336,47 @@ cdef class ACLPermissionSet(object):
 
     def items(self):
         for i in self.perm_enum:
+            yield (i, self[i])
+
+
+cdef class ACLFlagSet(object):
+    cdef defs.acl_flagset_t flagset
+    cdef readonly ACLEntry parent
+
+    def __getitem__(self, item):
+        if item not in NFS4Flag:
+            raise KeyError('Invalid flag')
+
+        return <bint>defs.acl_get_flag_np(self.flagset, item.value)
+
+    def __setitem__(self, key, value):
+        if key not in NFS4Flag:
+            raise KeyError('Invalid flag')
+
+        if value is True:
+            if defs.acl_add_flag_np(self.flagset, key.value) != 0:
+                raise OSError(errno, strerror(errno))
+
+            return
+
+        if value is False:
+            if defs.acl_delete_flag_np(self.flagset, key.value) != 0:
+                raise OSError(errno, strerror(errno))
+
+            return
+
+        raise ValueError('Value must be either True or False')
+
+    def __iter__(self):
+        return iter(NFS4Flag)
+
+    def clear(self):
+        if defs.acl_clear_flags_np(self.flagset) != 0:
+            raise OSError(errno, strerror(errno))
+
+    def keys(self):
+        return list(NFS4Flag)
+
+    def items(self):
+        for i in NFS4Flag:
             yield (i, self[i])

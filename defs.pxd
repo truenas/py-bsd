@@ -271,6 +271,16 @@ cdef extern from "sys/acl.h":
         ACL_OTHER
         ACL_EVERYONE
 
+    enum:
+        ACL_ENTRY_TYPE_ALLOW
+        ACL_ENTRY_TYPE_DENY
+
+    enum:
+        ACL_ENTRY_FILE_INHERIT
+        ACL_ENTRY_DIRECTORY_INHERIT
+        ACL_ENTRY_NO_PROPAGATE_INHERIT
+        ACL_ENTRY_INHERIT_ONLY
+
     ctypedef enum acl_perm_t:
         ACL_EXECUTE
         ACL_WRITE
