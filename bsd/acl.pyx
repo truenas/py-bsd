@@ -95,32 +95,64 @@ class NFS4Flag(enum.IntEnum):
 
 cdef class ACL(object):
     cdef defs.acl_t acl
-    cdef readonly path
+    cdef readonly fobj
     cdef readonly type
-
-    def __init__(self, path=None, text=None, acltype=ACLType.NFS4):
+    cdef  _link
+    
+    def __init__(self, file=None, text=None, acltype=ACLType.NFS4, follow_links = False):
+        from sys import stderr as ref_file
         self.type = acltype
-
-        if path:
-            self.path = path
-            self.acl = defs.acl_get_file(path, acltype)
-            return
+        self._link = follow_links
+        
+        if file:
+            self.fobj = file
+            
+        if self.fobj and text:
+            raise ValueError("Only one of file/path and text may be given")
+        
+        if self.fobj:
+            if type(self.fobj) is str:
+                if self._link:
+                    self.acl = defs.acl_get_link_np(self.fobj, acltype)
+                else:
+                    self.acl = defs.acl_get_file(self.fobj, acltype)
+            elif type(self.fobj) is type(ref_file):
+                self.acl = defs.acl_get_fd_np(self.fobj.fileno(), acltype)
+            elif type(self.fobj) is int:
+                self.acl = defs.acl_get_fd_np(self.fobj, acltype)
+            else:
+                raise ValueError("Invalid type for path")
 
         if text:
             self.text = text
-            return
+
+        return
 
     def __getstate__(self):
         return [i.__getstate__() for i in self.entries]
 
-    def apply(self, path=None):
-        if not path and self.path:
-            path = self.path
+    def apply(self, file=None):
+        from sys import stderr as ref_file
+        
+        if not file and self.fobj:
+            file = self.fobj
 
-        if not path:
+        if not file:
             raise ValueError('Please specify path')
 
-        if defs.acl_set_file(path, self.type, self.acl) != 0:
+        if type(file) is str:
+            if self._link:
+                rv = defs.acl_set_link_np(file, self.type, self.acl)
+            else:
+                rv = defs.acl_set_file(file, self.type, self.acl)
+        elif type(file) is type(ref_file):
+            rv = defs.acl_set_fd_np(file.fileno(), self.acl, self.type)
+        elif type(file) is int:
+            rv = defs.acl_set_fd_np(file, self.acl, self.type)
+        else:
+            raise ValueError("Invalid type for file parameter")
+        
+        if rv != 0:
             raise OSError(errno, strerror(errno))
 
     property brand:

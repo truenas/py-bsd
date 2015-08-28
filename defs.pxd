@@ -246,7 +246,32 @@ cdef extern from "sys/linker.h":
     int kldnext(int fileid)
     int kldstat(int fileid, kld_file_stat* stat)
 
+cdef extern from "sys/extattr.h":
+    enum:
+        EXTATTR_NAMESPACE_EMPTY
+        EXTATTR_NAMESPACE_USER
+        EXTATTR_NAMESPACE_SYSTEM
 
+        
+    char *EXTATTR_NAMESPACE_EMPTY_STRING
+    char *EXTATTR_NAMESPACE_USER_STRING
+    char *EXTATTR_NAMESPACE_SYSTEM_STRING
+    
+    ssize_t extattr_get_fd(int fd, int attrnamespace, const char *attrname, void *data, size_t nbytes)
+    ssize_t exattr_set_fd(int fd, int attrnamespace, const char *attrname, const void *data, size_t nbytes)
+    int extattr_delete_fd(int fd, int attrnamespace, const char *attrname)
+    ssize_t extattr_list_fd(int fd, int attrnamespace, void *data, size_t nbytes)
+
+    ssize_t extattr_get_file(const char *path, int attrnamespace, const char *attrname, void *data, size_t nbytes)
+    ssize_t extattr_set_file(const char *path, int attrnamespace, const char *attrname, const void *data, size_t nbytes)
+    ssize_t extattr_delete_file(const char *path, int attrnamespace, const char *attrname)
+    ssize_t extattr_list_file(const char *path, int attrnamespace, void *data, size_t nbytes)
+
+    ssize_t extattr_get_link(const char *path, int attrnamespace, const char *attrname, void *data, size_t nbytes)
+    ssize_t extattr_set_link(const char *path, int attrnamespace, const char *attrname, void *data, size_t nbytes)
+    ssize_t extattr_delete_link(const char *path, int attrnamespace, const char *attrname)
+    ssize_t extattr_list_link(const char *path, int attrnamespace, void *data, size_t nbytes)
+    
 cdef extern from "sys/acl.h":
     enum:
         ACL_BRAND_UNKNOWN
