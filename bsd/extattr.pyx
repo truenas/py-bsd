@@ -34,22 +34,20 @@ from libc.errno cimport errno
 from libc.stdlib cimport malloc, free
 cimport defs
 
-USER = defs.EXTATTR_NAMESPACE_USER_STRING
-SYSTEM = defs.EXTATTR_NAMESPACE_SYSTEM_STRING
-_namespaces = {
-    USER : defs.EXTATTR_NAMESPACE_USER,
-    SYSTEM : defs.EXTATTR_NAMESPACE_SYSTEM,
-}
+class Namespaces(enum.IntEnum):
+    USER = defs.EXTATTR_NAMESPACE_USER
+    SYSTEM = defs.EXTATTR_NAMESPACE_SYSTEM
 
-def Get(fobj, namespace = USER, attrname = None, follow = True):
+def get(fobj, namespace = Namespaces.USER, attrname = None, follow = True):
     """Wrapper for extattr_get(3) API.
 
     :Parameters:
 	- fobj (file, str, int):  the file object upon which to operate.
 		If a string, this is the path; if a file, the file object
 		on which to operate; if an integer, the file descriptor.
-	- namespace (string):  The namespace to use.  Currently, either
-		extattr.USER or extattr.SYSTEM (defaults to extattr.USER).
+	- namespace (int):  The namespace to use.  Currently, either
+		extattr.Namespaces.USER or extattr.Namespaces.SYSTEM
+    		(defaults to extattr.Namespaces.USER).
 	- attrname (str):  the extended attribute to get.  If None, it
 		will return all extended attributes for the given
 		file and namespace.
@@ -70,13 +68,8 @@ def Get(fobj, namespace = USER, attrname = None, follow = True):
         char *data_buffer
         size_t nbytes
 
-    if namespace not in _namespaces:
-        raise ValueError("Invalid namespace %s" % namespace)
-    else:
-        ns = _namespaces[namespace]
-        
     if attrname is None:
-        attrs = List(fobj, namespace, follow)
+        attrs = _list(fobj, namespace, follow)
     else:
         attrs = [attrname]
     retval = {}
@@ -85,15 +78,15 @@ def Get(fobj, namespace = USER, attrname = None, follow = True):
         ea_name = ea
         try:
             if type(fobj) is file:
-                kr = defs.extattr_get_fd(fobj.fileno(), ns, ea_name, NULL, 0)
+                kr = defs.extattr_get_fd(fobj.fileno(), namespace, ea_name, NULL, 0)
             elif type(fobj) is int:
-                kr = defs.extattr_get_fd(fobj, ns, ea_name, NULL, 0)
+                kr = defs.extattr_get_fd(fobj, namespace, ea_name, NULL, 0)
             elif type(fobj) is str:
                 pname = fobj
                 if follow:
-                    kr = defs.extattr_get_file(pname, ns, ea_name, NULL, 0)
+                    kr = defs.extattr_get_file(pname, namespace, ea_name, NULL, 0)
                 else:
-                    kr = defs.extattr_get_link(pname, ns, ea_name, NULL, 0)
+                    kr = defs.extattr_get_link(pname, namespace, ea_name, NULL, 0)
             else:
                 raise ValueError("Unknown file type")
 
@@ -106,14 +99,14 @@ def Get(fobj, namespace = USER, attrname = None, follow = True):
                     raise MemoryError()
 
                 if type(fobj) is file:
-                    kr = defs.extattr_get_fd(fobj.fileno(), ns, ea_name, data_buffer, nbytes)
+                    kr = defs.extattr_get_fd(fobj.fileno(), namespace, ea_name, data_buffer, nbytes)
                 elif type(fobj) is int:
-                    kr = defs.extattr_get_fd(fobj, ns, ea_name, data_buffer, nbytes)
+                    kr = defs.extattr_get_fd(fobj, namespace, ea_name, data_buffer, nbytes)
                 elif type(fobj) is str:
                     if follow:
-                        kr = defs.extattr_get_file(pname, ns, ea_name, data_buffer, nbytes)
+                        kr = defs.extattr_get_file(pname, namespace, ea_name, data_buffer, nbytes)
                     else:
-                        kr = defs.extattr_get_link(pname, ns, ea_name, data_buffer, nbytes)
+                        kr = defs.extattr_get_link(pname, namespace, ea_name, data_buffer, nbytes)
                 # No need to check for another type, because the first pass would have caught it
                 if kr == -1:
                     raise OSError(errno, os.strerror(errno))
@@ -133,15 +126,16 @@ def Get(fobj, namespace = USER, attrname = None, follow = True):
 
     return retval
 
-def Delete(fobj, namespace = USER, attrname = None, follow = True):
+def delete(fobj, namespace = Namespaces.USER, attrname = None, follow = True):
     """Wrapper for extattr_delete(3) API.
 
     :Parameters:
 	- fobj (file, str, int):  the file object upon which to operate.
 		If a string, this is the path; if a file, the file object
 		on which to operate; if an integer, the file descriptor.
-	- namespace (string):  The namespace to use.  Currently, either
-		extattr.USER or extattr.SYSTEM (defaults to extattr.USER).
+	- namespace (int):  The namespace to use.  Currently, either
+		extattr.Namespaces.USER or extattr.Namespaces.SYSTEM
+    		(defaults to extattr.Namespaces.USER).
 	- attrname (str):  the extended attribute to delete.  If None, it
 		will delete all extended attributes for the given
 		file and namespace.
@@ -159,13 +153,8 @@ def Delete(fobj, namespace = USER, attrname = None, follow = True):
     cdef:
         char *ea_name
 
-    if namespace not in _namespaces:
-        raise ValueError("Invalid namespace %s" % namespace)
-    else:
-        ns = _namespaces[namespace]
-        
     if attrname is None:
-        attrs = List(fobj, namespace, follow)
+        attrs = _list(fobj, namespace, follow)
     else:
         attrs = [attrname]
     retval = {}
@@ -173,15 +162,15 @@ def Delete(fobj, namespace = USER, attrname = None, follow = True):
     for ea in attrs:
         ea_name = ea
         if type(fobj) is file:
-            kr = defs.extattr_delete_fd(fobj.fileno(), ns, ea_name)
+            kr = defs.extattr_delete_fd(fobj.fileno(), namespace, ea_name)
         elif type(fobj) is int:
-            kr = defs.extattr_delete_fd(fobj, ns, ea_name)
+            kr = defs.extattr_delete_fd(fobj, namespace, ea_name)
         elif type(fobj) is str:
             pname = fobj
             if follow:
-                kr = defs.extattr_delete_file(pname, ns, ea_name)
+                kr = defs.extattr_delete_file(pname, namespace, ea_name)
             else:
-                kr = defs.extattr_delete_link(pname, ns, ea_name)
+                kr = defs.extattr_delete_link(pname, namespace, ea_name)
         else:
             raise ValueError("Unknown file type")
 
@@ -190,15 +179,80 @@ def Delete(fobj, namespace = USER, attrname = None, follow = True):
 
     return True
 
-def List(fobj, namespace = USER, follow = True):
+def set(fobj, namespace = Namespaces.USER, attr = None, follow = True):
+    """Wrapper for the extattr_set(3) API.
+    
+    :Parameters:
+    	- fobj (file, str, int):  the file object upon which to operate.
+		If a string, this is the path; if a file, the file object
+		on which to operate; if an integer, the file descriptor.
+	- namespace (int):  The namespace to use.  Currently, either
+		extattr.Namespaces.USER or extattr.Namespaces.SYSTEM
+    		(default to extattr.Namespaces.USER).
+	- attr (dict):  The key/value pairs to set.  Currently, the values
+    		must be strings.
+    	- follow (bool):  Whether or not to follow symlinks (only valid
+		if fobjs is a string).
+    :Raises:
+	OSError:  the corresponding extattr_set system call failed.
+    	ValueError:  One of the parameters has an invalid value.
+	MemoryError:  Out of memory
+
+    :Returns:
+	True if successful.  False if attr was None.  Raises an exception otherwise.
+    """
+    cdef:
+        char *pname
+        char *attr_name
+        char *attr_data
+        size_t data_len
+        ssize_t kr
+        
+    pname = NULL
+    data_buffer = NULL
+    data_len = 0
+
+    if type(fobj) not in (int, file, str):
+        raise ValueError("Invalid type for file object")
+
+    if attr is None:
+        return False
+
+    for k, v in attr.iteritems():
+        if type(v) is not str:
+            try:
+                v = str(v)
+            except:
+                raise ValueError("Invalid type for key %s" % k)
+        attr_name = k
+        attr_data = v
+        data_len = len(v)
+        
+        if type(fobj) is file:
+            kr = defs.extattr_set_fd(fobj.fileno(), namespace, attr_name, attr_data, data_len)
+        elif type(fobj) is int:
+            kr = defs.extattr_set_fd(fobj, namespace, attr_name, attr_data, data_len)
+        elif type(fobj) is str:
+            if follow:
+                kr = defs.extattr_set_file(fobj, namespace, attr_name, attr_data, data_len)
+            else:
+                kr = defs.extattr_set_link(fobj, namespace, attr_name, attr_data, data_len)
+
+        if kr == -1:
+            raise OSError(errno, os.strerror(errno))
+
+    return True
+
+def _list(fobj, namespace = Namespaces.USER, follow = True):
     """Wrapper for extattr_list(3) API.
 
     :Parameters:
 	- fobj (file, str, int):  the file object upon which to operate.
 		If a string, this is the path; if a file, the file object
 		on which to operate; if an integer, the file descriptor.
-	- namespace (string):  The namespace to use.  Currently, either
-		extattr.USER or extattr.SYSTEM (defaults to extattr.USER).
+	- namespace (int):  The namespace to use.  Currently, either
+		extattr.Namespaces.USER or extattr.Namespaces.SYSTEM
+    		(defaults to extattr.Namespaces.USER).
     	- follow (bool):  If the file is a pathname, and is a symbolic link,
 		follow (or do not follow) the link.  Default is to not follow.
 
@@ -216,28 +270,22 @@ def List(fobj, namespace = USER, follow = True):
         size_t nbytes
         ssize_t kr
         unsigned char *ptr
-        int ns
         
     retval = []
     pname = NULL
     data_buffer = NULL
     
-    if namespace not in _namespaces:
-        raise ValueError("Invalid namespace %s" % namespace)
-    else:
-        ns = _namespaces[namespace]
-        
     try:
         if type(fobj) is file:
-            kr = defs.extattr_list_fd(fobj.fileno(), ns, data_buffer, 0)
+            kr = defs.extattr_list_fd(fobj.fileno(), namespace, data_buffer, 0)
         elif type(fobj) is int:
-            kr = defs.extattr_list_fd(fobj, ns, data_buffer, 0)
+            kr = defs.extattr_list_fd(fobj, namespace, data_buffer, 0)
         elif type(fobj) is str:
             pname = fobj
             if follow:
-                kr = defs.extattr_list_file(pname, ns, NULL, 0)
+                kr = defs.extattr_list_file(pname, namespace, NULL, 0)
             else:
-                kr = defs.extattr_list_link(pname, ns, NULL, 0)
+                kr = defs.extattr_list_link(pname, namespace, NULL, 0)
         else:
             raise ValueError("Unknown file type")
         
@@ -251,14 +299,14 @@ def List(fobj, namespace = USER, follow = True):
                 raise MemoryError()
         
             if type(fobj) is file:
-                kr = defs.extattr_list_file(fobj.fileno(), ns, data_buffer, nbytes)
+                kr = defs.extattr_list_file(fobj.fileno(), namespace, data_buffer, nbytes)
             elif type(fobj) is int:
-                kr = defs.exattr_list_file(fobj, ns, data_buffer, nbytes)
+                kr = defs.exattr_list_file(fobj, namespace, data_buffer, nbytes)
             elif type(fobj) is str:
                 if follow:
-                    kr = defs.extattr_list_file(pname, ns, data_buffer, nbytes)
+                    kr = defs.extattr_list_file(pname, namespace, data_buffer, nbytes)
                 else:
-                    kr = defs.extattr_list_link(pname, ns, data_buffer, nbytes)
+                    kr = defs.extattr_list_link(pname, namespace, data_buffer, nbytes)
 
             if kr == -1:
                 raise OSError(errno, os.strerror(errno))
@@ -277,3 +325,5 @@ def List(fobj, namespace = USER, follow = True):
         if data_buffer:
             free(data_buffer)
             
+list = _list
+
