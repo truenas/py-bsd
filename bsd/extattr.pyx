@@ -38,6 +38,33 @@ class Namespaces(enum.IntEnum):
     USER = defs.EXTATTR_NAMESPACE_USER
     SYSTEM = defs.EXTATTR_NAMESPACE_SYSTEM
 
+_namespace_mapping = {
+    "user" : Namespaces.USER,
+    "system" : Namespaces.SYSTEM,
+}
+
+def get_namespace(*args):
+    """Namespace mapper for extattr(3) APIs.
+    :Parameters:
+    	- None - return a dictionary of all namespaces (str -> Namespaces value)
+	- str list - return a list (including possibly only one element) of
+		the requested namespaces, as above
+    :Raises:
+	ValueError : If a namespace is given, but does not exists.
+
+    :Returns:
+	A dictionary of namespace strings to value.
+    """
+    if len(args) == 0:
+        return _namespace_mapping.copy()
+    else:
+        retval = {}
+        for n in args:
+            if n not in _namespace_mapping:
+                raise ValueError("%s is not a valid extattr namespace" % n)
+            retval[n] = _namespace_mapping[n]
+        return retval
+    
 def get(fobj, namespace = Namespaces.USER, attrname = None, follow = True):
     """Wrapper for extattr_get(3) API.
 
