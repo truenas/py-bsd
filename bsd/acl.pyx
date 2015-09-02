@@ -131,6 +131,12 @@ cdef class ACL(object):
     def __getstate__(self):
         return [i.__getstate__() for i in self.entries]
 
+    def __setstate__(self, value):
+        self.clear()
+        for e in value:
+            entry = self.add()
+            entry.__setstate__(e)
+
     def apply(self, file=None):
         from sys import stderr as ref_file
         
@@ -155,6 +161,30 @@ cdef class ACL(object):
         if rv != 0:
             raise OSError(errno, strerror(errno))
 
+    def add(self, index=None):
+        cdef ACLEntry ret
+        cdef defs.acl_entry_t entry
+
+        if index:
+            if defs.acl_create_entry_np(&self.acl, &entry, index) != 0:
+                raise OSError(errno, strerror(errno))
+        else:
+            if defs.acl_create_entry(&self.acl, &entry) != 0:
+                raise OSError(errno, strerror(errno))
+
+        ret = ACLEntry.__new__(ACLEntry)
+        ret.parent = self
+        ret.entry = entry
+        return entry
+
+    def delete(self, index):
+        if defs.acl_delete_entry_np(self.acl, index) != 0:
+            raise OSError(errno, strerror(errno))
+
+    def clear(self):
+        for i in self.entries:
+            i.delete()
+
     property brand:
         def __get__(self):
             cdef int brand
@@ -170,14 +200,17 @@ cdef class ACL(object):
             cdef defs.acl_entry_t entry
             cdef int err
 
+            result = []
             err = defs.acl_get_entry(self.acl, defs.ACL_FIRST_ENTRY, &entry)
             while err != 0:
                 ret = ACLEntry.__new__(ACLEntry)
                 ret.parent = self
                 ret.entry = entry
-                yield ret
+                result.append(ret)
 
                 err = defs.acl_get_entry(self.acl, defs.ACL_NEXT_ENTRY, &entry)
+
+            return result
 
     property text:
         def __get__(self):
@@ -216,7 +249,30 @@ cdef class ACLEntry(object):
         }
 
     def __setstate__(self, obj):
-        pass
+        if 'text' in obj:
+            self.text = obj['text']
+
+        if 'id' in obj:
+            self.id = obj['id']
+
+        if 'name' in obj:
+            self.name = obj['name']
+
+        if 'type' in obj:
+            self.type = obj['type']
+
+        if 'perms' in obj:
+            for k, v in obj['perms']:
+                self.perms[k] = v
+
+        if 'flags' in obj:
+            for k, v in obj['flags']:
+                self.flags[k] = v
+
+
+    def delete(self):
+        if defs.acl_delete_entry(self.parent.acl, self.entry) != 0:
+            raise OSError(errno, strerror(errno))
 
     property tag:
         def __get__(self):
@@ -396,12 +452,18 @@ cdef class ACLPermissionSet(object):
         self.permset = <defs.acl_permset_t>malloc(cython.sizeof(defs.acl_permset_t))
 
     def __getitem__(self, item):
+        if isinstance(item, basestring):
+            item = getattr(self.perm_enum, item)
+
         if item not in self.perm_enum:
             raise KeyError('Invalid permission identifier')
 
         return <bint>defs.acl_get_perm_np(self.permset, item.value)
 
     def __setitem__(self, key, value):
+        if isinstance(key, basestring):
+            key = getattr(self.perm_enum, key)
+
         if key not in self.perm_enum:
             raise KeyError('Invalid permission identifier')
 
@@ -439,12 +501,18 @@ cdef class ACLFlagSet(object):
     cdef readonly ACLEntry parent
 
     def __getitem__(self, item):
+        if isinstance(item, basestring):
+            item = getattr(NFS4Flag, item)
+
         if item not in NFS4Flag:
             raise KeyError('Invalid flag')
 
         return <bint>defs.acl_get_flag_np(self.flagset, item.value)
 
     def __setitem__(self, key, value):
+        if isinstance(key, basestring):
+            key = getattr(NFS4Flag, key)
+
         if key not in NFS4Flag:
             raise KeyError('Invalid flag')
 
