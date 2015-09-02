@@ -379,7 +379,10 @@ cdef class ACLEntry(object):
                 defs.acl_free(<void*>acl)
                 raise OSError(errno, strerror(errno))
 
-            memcpy(&self.entry, &entry, cython.sizeof(defs.acl_entry_t))
+            if defs.acl_copy_entry(self.entry, entry) != 0:
+                defs.acl_free(<void*>acl)
+                raise OSError(errno, strerror(errno))
+
             self.brand = ACLBrand(brand)
             defs.acl_free(<void*>acl)
 
