@@ -24,12 +24,14 @@
 # SUCH DAMAGE.
 #
 
+import os
 import enum
 import resource
 import cython
 from libc.string cimport strerror
 from libc.errno cimport errno
 from libc.stdlib cimport malloc, free
+from posix.stat cimport *
 cimport defs
 
 
@@ -248,6 +250,32 @@ def kinfo_getproc(pid):
     ret = Process.__new__(Process)
     ret.proc = proc
     return ret
+
+
+def lchown(path, uid=-1, gid=-1, recursive=False):
+    if not recursive:
+        os.lchown(path, uid, gid)
+        return
+
+    for root, dirs, files in os.walk(path):
+        for n in files:
+            os.lchown(os.path.join(root, n), uid, gid)
+
+        for n in dirs:
+            os.lchown(os.path.join(root, n), uid, gid)
+
+
+def lchmod(path, mode, recursive=False):
+    if not recursive:
+        os.lchmod(path, mode)
+        return
+
+    for root, dirs, files in os.walk(path):
+        for n in files:
+            os.lchmod(os.path.join(root, n), mode)
+
+        for n in dirs:
+            os.lchmod(os.path.join(root, n), mode)
 
 
 

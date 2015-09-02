@@ -54,3 +54,13 @@ def statfs(path):
 def kinfo_getproc(pid):
     from . import _bsd
     return _bsd.kinfo_getproc(pid)
+
+
+def lchown(path, uid=-1, gid=-1, recursive=False):
+    from . import _bsd
+    return _bsd.lchown(path, uid, gid, recursive)
+
+
+def lchmod(path, mode, recursive=False):
+    from . import _bsd
+    return _bsd.lchmod(path, mode, recursive)
