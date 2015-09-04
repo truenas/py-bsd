@@ -395,3 +395,52 @@ cdef extern from "sys/acl.h":
     int	acl_valid_link_np(const char *_path_p, acl_type_t _type, acl_t _acl)
     int	acl_is_trivial_np(const acl_t _acl, int *_trivialp)
     acl_t acl_strip_np(const acl_t _acl, int recalculate_mask)
+
+
+cdef extern from "sys/bus.h":
+    cdef enum device_state:
+        DS_NOTPRESENT = 10
+        DS_ALIVE = 20
+        DS_ATTACHING = 25
+        DS_ATTACHED = 30
+        DS_BUSY = 40
+    ctypedef device_state device_state_t
+
+
+cdef extern from "devinfo.h":
+
+    ctypedef uintptr_t devinfo_handle_t
+    ctypedef device_state_t devinfo_state_t
+
+    cdef struct devinfo_dev:
+        devinfo_handle_t dd_handle
+        devinfo_handle_t dd_parent
+        char *dd_name
+        char *dd_desc
+        char *dd_drivername
+        char *dd_pnpinfo
+        char *dd_location
+        uint32_t dd_devflags
+        uint16_t dd_flags
+        devinfo_state_t dd_state
+
+    cdef struct devinfo_rman:
+        devinfo_handle_t dm_handle
+        unsigned long dm_start
+        unsigned long dm_size
+        char *dm_desc
+
+    cdef struct devinfo_res:
+        devinfo_handle_t dr_handle
+        devinfo_handle_t dr_rman
+        devinfo_handle_t dr_device
+        unsigned long dr_start
+        unsigned long dr_size
+
+    int devinfo_init();
+    int devinfo_free();
+    int devinfo_foreach_rman(int (* fn)(devinfo_rman *rman, void *arg), void *arg);
+    int devinfo_foreach_rman_resource(devinfo_rman *rman, int (* fn)(devinfo_res *res, void *arg), void *arg);
+    devinfo_dev *devinfo_handle_to_device(devinfo_handle_t handle);
+    devinfo_res *devinfo_handle_to_resource(devinfo_handle_t handle)
+    devinfo_rman *devinfo_handle_to_rman(devinfo_handle_t handle);

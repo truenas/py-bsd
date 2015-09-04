@@ -35,6 +35,7 @@ extensions = [
     Extension("bsd.kld", ["bsd/kld.pyx"], extra_compile_args=["-g", "-O0"]),
     Extension("bsd.acl", ["bsd/acl.pyx"], extra_compile_args=["-g", "-O0"]),
     Extension("bsd.extattr", ["bsd/extattr.pyx"], extra_compile_args=["-g", "-O0"]),
+    Extension("bsd.devinfo", ["bsd/devinfo.pyx"], extra_compile_args=["-g", "-O0"], extra_link_args=["-ldevinfo"]),
 ]
 
 
