@@ -239,7 +239,7 @@ cdef class ACLEntry(object):
 
     def __getstate__(self):
         return {
-            'tag': self.tag,
+            'tag': self.tag.name,
             'id': self.id,
             'name': self.name,
             'type': self.type.name,
