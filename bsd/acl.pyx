@@ -97,9 +97,9 @@ cdef class ACL(object):
     cdef defs.acl_t acl
     cdef readonly fobj
     cdef readonly type
-    cdef  _link
+    cdef object _link
     
-    def __init__(self, file=None, text=None, acltype=ACLType.NFS4, follow_links = False):
+    def __init__(self, file=None, text=None, acltype=ACLType.NFS4, follow_links=False):
         from sys import stderr as ref_file
         self.type = acltype
         self._link = follow_links
@@ -111,7 +111,7 @@ cdef class ACL(object):
             raise ValueError("Only one of file/path and text may be given")
         
         if self.fobj:
-            if type(self.fobj) is str:
+            if isinstance(self.fobj, basestring):
                 if self._link:
                     self.acl = defs.acl_get_link_np(self.fobj, acltype)
                 else:
