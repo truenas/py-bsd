@@ -180,7 +180,7 @@ def sysctl(name, old=True, new=None):
             ret = defs.sysctl(namep, len(name), oldp, &oldlen, NULL, 0)
             if ret == -1:
                 raise OSError(errno, os.strerror(errno))
-            oldp = malloc(oldlen)
+            oldp = malloc(oldlen + (16 * BUFSIZ))
             if not oldp:
                 raise MemoryError()
         else:
