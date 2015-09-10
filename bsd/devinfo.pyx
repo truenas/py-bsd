@@ -51,7 +51,7 @@ cdef class ResourceManager(dict):
     def append(self, dev):
         entry = self.get(dev.name)
         if entry is None:
-            self[dev.name] = dev
+            self[dev.name] = [dev]
         elif isinstance(entry, list):
             entry.append(dev)
         else:
