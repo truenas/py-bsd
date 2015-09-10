@@ -31,36 +31,8 @@ inexplicably missing.
 """
 
 
-def nmount(**kwargs):
-    from . import _bsd
-    return _bsd.nmount(**kwargs)
-
-
-def unmount(dir, flags=0):
-    from . import _bsd
-    return _bsd.unmount(dir, flags)
-
-
-def getmntinfo():
-    from . import _bsd
-    return _bsd.getmntinfo()
-
-
-def statfs(path):
-    from . import _bsd
-    return _bsd.statfs(path)
-
-
-def kinfo_getproc(pid):
-    from . import _bsd
-    return _bsd.kinfo_getproc(pid)
-
-
-def lchown(path, uid=-1, gid=-1, recursive=False):
-    from . import _bsd
-    return _bsd.lchown(path, uid, gid, recursive)
-
-
-def lchmod(path, mode, recursive=False):
-    from . import _bsd
-    return _bsd.lchmod(path, mode, recursive)
+from ._bsd import MountFlags
+from ._bsd import ClockType
+from ._bsd import nmount, unmount, getmntinfo, statfs
+from ._bsd import kinfo_getproc, clock_gettime, clock_settime
+from ._bsd import lchown, lchmod

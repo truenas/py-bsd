@@ -117,6 +117,28 @@ cdef extern from "sys/time.h":
         suseconds_t tv_usec
 
 
+cdef extern from "time.h":
+    ctypedef int clockid_t
+
+    cdef struct timespec:
+        time_t tv_sec
+        long tv_nsec
+
+    enum:
+        CLOCK_REALTIME
+        CLOCK_REALTIME_PRECISE
+        CLOCK_REALTIME_FAST
+        CLOCK_MONOTONIC
+        CLOCK_MONOTONIC_PRECISE
+        CLOCK_MONOTONIC_FAST
+        CLOCK_UPTIME
+        CLOCK_UPTIME_PRECISE
+        CLOCK_UPTIME_FAST
+
+    int clock_gettime(clockid_t clock_id, timespec *tp)
+    int clock_settime(clockid_t clock_id, timespec *tp)
+
+
 cdef extern from "sys/resource.h":
     cdef struct rusage:
         timeval ru_utime

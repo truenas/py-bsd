@@ -26,6 +26,7 @@
 
 import os
 import enum
+import math
 import resource
 import cython
 from libc.string cimport strerror
@@ -53,6 +54,18 @@ class MountFlags(enum.IntEnum):
     NOATIME = defs.MNT_NOATIME
     NOCLUSTERR = defs.MNT_NOCLUSTERR
     NOCLUSTERW = defs.MNT_NOCLUSTERW
+    
+    
+class ClockType(enum.IntEnum):
+    REALTIME = defs.CLOCK_REALTIME
+    REALTIME_PRECISE = defs.CLOCK_REALTIME_PRECISE
+    REALTIME_FAST = defs.CLOCK_REALTIME_FAST
+    MONOTONIC = defs.CLOCK_MONOTONIC
+    MONOTONIC_PRECISE = defs.CLOCK_MONOTONIC_PRECISE
+    MONOTONIC_FAST = defs.CLOCK_MONOTONIC_FAST
+    UPTIME = defs.CLOCK_UPTIME
+    UPTIME_PRECISE = defs.CLOCK_UPTIME_PRECISE
+    UPTIME_FAST = defs.CLOCK_UPTIME_FAST
 
 
 cdef class MountPoint(object):
@@ -252,6 +265,26 @@ def kinfo_getproc(pid):
     return ret
 
 
+def clock_gettime(clock):
+    cdef defs.timespec tp
+
+    if defs.clock_gettime(clock, &tp) != 0:
+        raise OSError(errno, strerror(errno))
+
+    return tp.tv_sec + tp.tv_nsec * 1e-9
+
+
+def clock_settime(clock, value):
+    cdef defs.timespec tp
+
+    frac, rest = math.modf(value)
+    tp.tv_sec = rest
+    tp.tv_nsec = frac * 1e9
+
+    if defs.clock_settime(clock, &tp) != 0:
+        raise OSError(errno, strerror(errno))
+
+
 def lchown(path, uid=-1, gid=-1, recursive=False):
     if not recursive:
         os.lchown(path, uid, gid)
@@ -276,7 +309,6 @@ def lchmod(path, mode, recursive=False):
 
         for n in dirs:
             os.lchmod(os.path.join(root, n), mode)
-
 
 
 def bitmask_to_set(n, enumeration):
