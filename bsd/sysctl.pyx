@@ -28,7 +28,7 @@ SUCH DAMAGE.
 import os
 import types
 
-from libc.stdlib cimport free, malloc
+from libc.stdlib cimport free, malloc, realloc
 from libc.string cimport memcpy, strcpy
 from libc.errno cimport *
 from cpython cimport array as c_array
@@ -107,6 +107,7 @@ def sysctl(name, old=True, new=None):
         int *namet
         void *newp
         void *oldp
+        void *tmpp
         size_t buflen
         size_t newlen
         size_t oldlen
@@ -175,21 +176,43 @@ def sysctl(name, old=True, new=None):
                 memcpy(newp_s, <char*>new, newlen)
                 newp = <void*>newp_s
 
+        # sysctl has problems with race conditions.
+        # Because of that, unlike the normal system call,
+        # we have to do this in two stages:  get old first,
+        # and then set new.
         if old:
-            # Allocate storage for the old data.
-            ret = defs.sysctl(namep, len(name), oldp, &oldlen, NULL, 0)
+            # We loop on this until we get all the data.
+            # Or until we've tried getting 4mbytes.
+            ret = defs.sysctl(namep, len(name), NULL, &oldlen, NULL, 0)
             if ret == -1:
                 raise OSError(errno, os.strerror(errno))
-            oldp = malloc(oldlen + (16 * BUFSIZ))
+            while True:
+                oldp = malloc(oldlen)
+                if not oldp:
+                    raise MemoryError()
+                ret = defs.sysctl(namep, len(name), oldp, &oldlen, NULL, 0)
+                if ret == 0:
+                    break
+                if errno != ENOMEM or oldlen > (4 * 1024 * 1024):
+                    free(oldp)
+                    raise OSError(errno, os.strerror(errno))
+                free(oldp)
+                oldlen = oldlen * 2
+            # This truncates the buffer to oldlen
+            tmpp = realloc(oldp, oldlen)
+            if tmpp:
+                # If realloc failed, we just have extra memory.
+                oldp = tmpp
             if not oldp:
                 raise MemoryError()
         else:
             oldp = NULL
             oldlen = 0
 
-        ret = defs.sysctl(namep, len(name), oldp, &oldlen, newp, newlen)
-        if ret == -1:
-            raise OSError(errno, os.strerror(errno))
+        if newp:
+            ret = defs.sysctl(namep, len(name), NULL, NULL, newp, newlen)
+            if ret == -1:
+                raise OSError(errno, os.strerror(errno))
 
         if oldp:
             if sysctl_type in CTLTYPE_INTEGERS:
