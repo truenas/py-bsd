@@ -286,8 +286,8 @@ def clock_settime(clock, value):
 
 
 def lchown(path, uid=-1, gid=-1, recursive=False):
+    os.lchown(path, uid, gid)
     if not recursive:
-        os.lchown(path, uid, gid)
         return
 
     for root, dirs, files in os.walk(path):
@@ -299,8 +299,8 @@ def lchown(path, uid=-1, gid=-1, recursive=False):
 
 
 def lchmod(path, mode, recursive=False):
+    os.lchmod(path, mode)
     if not recursive:
-        os.lchmod(path, mode)
         return
 
     for root, dirs, files in os.walk(path):
