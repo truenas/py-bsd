@@ -123,10 +123,13 @@ cdef class ACL(object):
             else:
                 raise ValueError("Invalid type for path")
 
+            return
+
         if text:
             self.text = text
+            return
 
-        return
+        self.acl = defs.acl_init(0)
 
     def __getstate__(self):
         return [i.__getstate__() for i in self.entries]
@@ -175,7 +178,7 @@ cdef class ACL(object):
         ret = ACLEntry.__new__(ACLEntry)
         ret.parent = self
         ret.entry = entry
-        return entry
+        return ret
 
     def delete(self, index):
         if defs.acl_delete_entry_np(self.acl, index) != 0:
@@ -439,7 +442,6 @@ cdef class ACLEntry(object):
                 defs.acl_free(<void*>acl)
                 raise OSError(errno, strerror(errno))
 
-            self.brand = ACLBrand(brand)
             defs.acl_free(<void*>acl)
 
 
