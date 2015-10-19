@@ -86,7 +86,10 @@ class GEOMObject(GEOMBase):
 
     @property
     def provider(self):
-        return self.providers.next()
+        try:
+            return self.providers.next()
+        except StopIteration:
+            return None
 
     @property
     def providers(self):
