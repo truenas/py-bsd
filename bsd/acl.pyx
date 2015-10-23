@@ -149,7 +149,7 @@ cdef class ACL(object):
         if not file:
             raise ValueError('Please specify path')
 
-        if type(file) is str:
+        if isinstance(file, basestring):
             if self._link:
                 rv = defs.acl_set_link_np(file, self.type, self.acl)
             else:
