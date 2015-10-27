@@ -25,8 +25,10 @@
 #
 
 from distutils.core import setup
-from distutils.extension import Extension
 from Cython.Build import cythonize
+from Cython.Distutils.extension import Extension
+from Cython.Distutils import build_ext
+import six
 
 
 extensions = [
@@ -34,7 +36,7 @@ extensions = [
     Extension("bsd.sysctl", ["bsd/sysctl.pyx"], extra_compile_args=["-g", "-O0"]),
     Extension("bsd.kld", ["bsd/kld.pyx"], extra_compile_args=["-g", "-O0"]),
     Extension("bsd.acl", ["bsd/acl.pyx"], extra_compile_args=["-g", "-O0"]),
-    Extension("bsd.extattr", ["bsd/extattr.pyx"], extra_compile_args=["-g", "-O0"]),
+    Extension("bsd.extattr", ["bsd/extattr.pyx"], extra_compile_args=["-g", "-O0"], cython_compile_time_env={'PY2': six.PY2}),
     Extension("bsd.devinfo", ["bsd/devinfo.pyx"], extra_compile_args=["-g", "-O0"], extra_link_args=["-ldevinfo"]),
 ]
 
@@ -44,5 +46,6 @@ setup(
     version='1.0',
     packages=['bsd'],
     package_dir={'bsd' : 'bsd'},
-    ext_modules=cythonize(extensions),
+    cmdclass={'build_ext': build_ext},
+    ext_modules=extensions,
 )

@@ -29,10 +29,17 @@ import enum
 import cython
 import pwd
 import grp
+import six
 from libc.string cimport strerror, memcpy
 from libc.errno cimport errno
 from libc.stdlib cimport malloc, free
 cimport defs
+
+IF PY2:
+    file_types = (file, )
+ELSE:
+    import io
+    file_types = (io.IOBase, )
 
 class Namespaces(enum.IntEnum):
     USER = defs.EXTATTR_NAMESPACE_USER
@@ -104,7 +111,7 @@ def get(fobj, namespace = Namespaces.USER, attrname = None, follow = True):
     for ea in attrs:
         ea_name = ea
         try:
-            if type(fobj) is file:
+            if isinstance(fobj, file_types):
                 kr = defs.extattr_get_fd(fobj.fileno(), namespace, ea_name, NULL, 0)
             elif type(fobj) is int:
                 kr = defs.extattr_get_fd(fobj, namespace, ea_name, NULL, 0)
@@ -125,7 +132,7 @@ def get(fobj, namespace = Namespaces.USER, attrname = None, follow = True):
                 if not data_buffer:
                     raise MemoryError()
 
-                if type(fobj) is file:
+                if isinstance(fobj, file_types):
                     kr = defs.extattr_get_fd(fobj.fileno(), namespace, ea_name, data_buffer, nbytes)
                 elif type(fobj) is int:
                     kr = defs.extattr_get_fd(fobj, namespace, ea_name, data_buffer, nbytes)
@@ -188,7 +195,7 @@ def delete(fobj, namespace = Namespaces.USER, attrname = None, follow = True):
 
     for ea in attrs:
         ea_name = ea
-        if type(fobj) is file:
+        if isinstance(fobj, file_types):
             kr = defs.extattr_delete_fd(fobj.fileno(), namespace, ea_name)
         elif type(fobj) is int:
             kr = defs.extattr_delete_fd(fobj, namespace, ea_name)
@@ -239,7 +246,7 @@ def set(fobj, namespace = Namespaces.USER, attr = None, follow = True):
     data_buffer = NULL
     data_len = 0
 
-    if type(fobj) not in (int, file, str):
+    if not isinstance(fobj, (int, str) + file_types):
         raise ValueError("Invalid type for file object")
 
     if attr is None:
@@ -255,7 +262,7 @@ def set(fobj, namespace = Namespaces.USER, attr = None, follow = True):
         attr_data = v
         data_len = len(v)
         
-        if type(fobj) is file:
+        if isinstance(fobj, file_types):
             kr = defs.extattr_set_fd(fobj.fileno(), namespace, attr_name, attr_data, data_len)
         elif type(fobj) is int:
             kr = defs.extattr_set_fd(fobj, namespace, attr_name, attr_data, data_len)
@@ -303,7 +310,7 @@ def _list(fobj, namespace = Namespaces.USER, follow = True):
     data_buffer = NULL
     
     try:
-        if type(fobj) is file:
+        if isinstance(fobj, file_types):
             kr = defs.extattr_list_fd(fobj.fileno(), namespace, data_buffer, 0)
         elif type(fobj) is int:
             kr = defs.extattr_list_fd(fobj, namespace, data_buffer, 0)
@@ -325,7 +332,7 @@ def _list(fobj, namespace = Namespaces.USER, follow = True):
             if not data_buffer:
                 raise MemoryError()
         
-            if type(fobj) is file:
+            if isinstance(fobj, file_types):
                 kr = defs.extattr_list_file(fobj.fileno(), namespace, data_buffer, nbytes)
             elif type(fobj) is int:
                 kr = defs.exattr_list_file(fobj, namespace, data_buffer, nbytes)
