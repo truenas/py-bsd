@@ -29,6 +29,8 @@
 from . import sysctl
 from xml.etree import ElementTree as etree
 
+import six
+
 
 _classes = {}
 _geoms = {}
@@ -87,7 +89,7 @@ class GEOMObject(GEOMBase):
     @property
     def provider(self):
         try:
-            return self.providers.next()
+            return six.next(self.providers)
         except StopIteration:
             return None
 
