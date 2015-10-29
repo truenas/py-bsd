@@ -49,7 +49,7 @@ cdef class KernelModule(object):
 
     property name:
         def __get__(self):
-            return self.stat.name
+            return self.stat.name.decode('ascii')
 
     property refs:
         def __get__(self):
@@ -69,7 +69,7 @@ cdef class KernelModule(object):
 
     property pathname:
         def __get__(self):
-            return self.stat.pathname
+            return self.stat.pathname.decode('ascii')
 
 
 def kldstat():
@@ -95,6 +95,7 @@ def kldstat():
 
 
 def kldload(path):
+    path = path.encode('ascii')
     if defs.kldload(path) != 0:
         raise OSError(errno, strerror(errno))
 
