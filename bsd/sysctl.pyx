@@ -1,3 +1,4 @@
+# cython: c_string_type=unicode, c_string_encoding=ascii
 """
 Cython sysctl bindings
 
@@ -32,6 +33,7 @@ from libc.stdlib cimport free, malloc, realloc
 from libc.string cimport memcpy, strcpy
 from libc.errno cimport *
 from cpython cimport array as c_array
+from cpython.version cimport PY_MAJOR_VERSION
 from array import array
 
 cimport cython
@@ -260,6 +262,8 @@ def sysctlbyname(name, old=True, new=None):
         int *mibp
         size_t _size
 
+    if PY_MAJOR_VERSION == 3 and isinstance(name, str):
+        name = name.encode('ascii')
     namep = name
     _size = CTL_MAXNAME
 
@@ -308,6 +312,8 @@ def sysctlnametomib(name, size=CTL_MAXNAME):
         int *mibp
         size_t _size
 
+    if PY_MAJOR_VERSION == 3 and isinstance(name, str):
+        name = name.encode('ascii')
     _size = size
     namep = name
 
