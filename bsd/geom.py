@@ -26,7 +26,7 @@
 #####################################################################
 
 
-import sysctl
+from . import sysctl
 from xml.etree import ElementTree as etree
 
 
