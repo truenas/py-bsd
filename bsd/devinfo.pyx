@@ -1,4 +1,5 @@
-#-
+# cython: c_string_type=unicode, c_string_encoding=ascii
+#
 # Copyright (c) 2015 iXsystems, Inc.
 # All rights reserved.
 #
@@ -33,6 +34,7 @@ class ResourceManagers(dict):
 
     def append(self, rman):
         self[rman.desc] = rman
+
 
 RESOURCE_MANAGERS = ResourceManagers()
 
@@ -116,11 +118,10 @@ cdef int rman_resource(defs.devinfo_res *res, void *unused):
 cdef int resource_manager(defs.devinfo_rman *rman, void *unused):
     global RESOURCE_MANAGERS
     cdef ResourceManager resourcemanager
+
     resourcemanager = ResourceManager.__new__(ResourceManager)
     resourcemanager.desc = rman.dm_desc
     resourcemanager.start = rman.dm_start
     resourcemanager.size = rman.dm_size
     RESOURCE_MANAGERS.append(resourcemanager)
-    defs.devinfo_foreach_rman_resource(rman, &rman_resource, <void *>None);
-
-
+    defs.devinfo_foreach_rman_resource(rman, &rman_resource, <void *>None)
