@@ -103,19 +103,20 @@ cdef class ACL(object):
         from sys import stderr as ref_file
         self.type = acltype
         self._link = follow_links
-        
+
         if file:
             self.fobj = file
-            
+
         if self.fobj and text:
             raise ValueError("Only one of file/path and text may be given")
-        
+
         if self.fobj:
-            if isinstance(self.fobj, basestring):
+            if isinstance(self.fobj, str):
                 if self._link:
-                    self.acl = defs.acl_get_link_np(self.fobj, acltype)
+                    self.acl = defs.acl_get_link_np(self.fobj.encode('utf8'), acltype)
                 else:
-                    self.acl = defs.acl_get_file(self.fobj, acltype)
+                    self.acl = defs.acl_get_file(self.fobj.encode('utf8'), acltype)
+
             elif type(self.fobj) is type(ref_file):
                 self.acl = defs.acl_get_fd_np(self.fobj.fileno(), acltype)
             elif type(self.fobj) is int:
@@ -149,11 +150,11 @@ cdef class ACL(object):
         if not file:
             raise ValueError('Please specify path')
 
-        if isinstance(file, basestring):
+        if isinstance(file, str):
             if self._link:
-                rv = defs.acl_set_link_np(file, self.type, self.acl)
+                rv = defs.acl_set_link_np(file.encode('utf8'), self.type, self.acl)
             else:
-                rv = defs.acl_set_file(file, self.type, self.acl)
+                rv = defs.acl_set_file(file.encode('utf8'), self.type, self.acl)
         elif type(file) is type(ref_file):
             rv = defs.acl_set_fd_np(file.fileno(), self.acl, self.type)
         elif type(file) is int:
@@ -217,7 +218,7 @@ cdef class ACL(object):
 
     property text:
         def __get__(self):
-            return defs.acl_to_text(self.acl, NULL)
+            return defs.acl_to_text(self.acl, NULL).decode('utf8')
 
         def __set__(self, text):
             self.acl = defs.acl_from_text(text)
@@ -330,12 +331,12 @@ cdef class ACLEntry(object):
 
         def __set__(self, value):
             if self.tag == ACLEntryTag.USER:
-                uid = pwd.getpwnam(value).pw_uid
+                uid = pwd.getpwnam(value.encode('utf8')).pw_uid
                 self.id = uid
                 return
 
             if self.tag == ACLEntryTag.GROUP:
-                gid = pwd.getpwnam(value).pw_gid
+                gid = pwd.getpwnam(value.encode('utf8')).pw_gid
                 self.id = gid
                 return
 
@@ -418,14 +419,14 @@ cdef class ACLEntry(object):
                 raise OSError(errno, strerror(errno))
 
             defs.acl_free(<void*>acl)
-            return result.strip()
+            return result.decode('utf8').strip()
 
         def __set__(self, value):
             cdef defs.acl_t acl
             cdef defs.acl_entry_t entry
             cdef int brand
 
-            acl = defs.acl_from_text(value)
+            acl = defs.acl_from_text(value.encode('utf8'))
 
             if <void*>acl == NULL:
                 raise OSError(errno, strerror(errno))
@@ -454,7 +455,7 @@ cdef class ACLPermissionSet(object):
         self.permset = <defs.acl_permset_t>malloc(cython.sizeof(defs.acl_permset_t))
 
     def __getitem__(self, item):
-        if isinstance(item, basestring):
+        if isinstance(item, str):
             item = getattr(self.perm_enum, item)
 
         if item not in self.perm_enum:
@@ -463,7 +464,7 @@ cdef class ACLPermissionSet(object):
         return <bint>defs.acl_get_perm_np(self.permset, item.value)
 
     def __setitem__(self, key, value):
-        if isinstance(key, basestring):
+        if isinstance(key, str):
             key = getattr(self.perm_enum, key)
 
         if key not in self.perm_enum:
@@ -503,7 +504,7 @@ cdef class ACLFlagSet(object):
     cdef readonly ACLEntry parent
 
     def __getitem__(self, item):
-        if isinstance(item, basestring):
+        if isinstance(item, str):
             item = getattr(NFS4Flag, item)
 
         if item not in NFS4Flag:
@@ -512,7 +513,7 @@ cdef class ACLFlagSet(object):
         return <bint>defs.acl_get_flag_np(self.flagset, item.value)
 
     def __setitem__(self, key, value):
-        if isinstance(key, basestring):
+        if isinstance(key, str):
             key = getattr(NFS4Flag, key)
 
         if key not in NFS4Flag:
