@@ -186,7 +186,7 @@ cdef class ACL(object):
             raise OSError(errno, strerror(errno))
 
     def clear(self):
-        while len(self.entries > 0):
+        while len(self.entries) > 0:
             self.delete(0)
 
     property brand:
