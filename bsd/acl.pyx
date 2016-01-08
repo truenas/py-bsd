@@ -207,7 +207,7 @@ cdef class ACL(object):
             result = []
             err = defs.acl_get_entry(self.acl, defs.ACL_FIRST_ENTRY, &entry)
             if err != 1:
-                return
+                return []
 
             while True:
                 err = defs.acl_get_entry(self.acl, defs.ACL_NEXT_ENTRY, &entry)
