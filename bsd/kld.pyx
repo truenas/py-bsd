@@ -96,7 +96,7 @@ def kldstat():
 
 def kldload(path):
     path = path.encode('ascii')
-    if defs.kldload(path) != 0:
+    if defs.kldload(path) == -1:
         raise OSError(errno, strerror(errno))
 
 
