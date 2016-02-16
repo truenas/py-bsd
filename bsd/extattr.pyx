@@ -30,7 +30,7 @@ import cython
 import pwd
 import grp
 import six
-from libc.string cimport strerror, memcpy
+from libc.string cimport memcpy
 from libc.errno cimport errno
 from libc.stdlib cimport malloc, free
 cimport defs

@@ -29,7 +29,6 @@ import enum
 import math
 import resource
 import cython
-from libc.string cimport strerror
 from libc.errno cimport errno
 from libc.stdlib cimport malloc, free
 from posix.stat cimport *
@@ -197,7 +196,7 @@ def getmntinfo():
 
     count = defs.getmntinfo(&mntbuf, defs.MNT_WAIT)
     if count == 0:
-        raise OSError(errno, strerror(errno))
+        raise OSError(errno, os.strerror(errno))
 
     for i in range(0, count):
         mnt = MountPoint.__new__(MountPoint)
@@ -212,7 +211,7 @@ def statfs(path):
     statfs = <defs.statfs*>malloc(cython.sizeof(defs.statfs))
 
     if defs.c_statfs(path, statfs) != 0:
-        raise OSError(errno, strerror(errno))
+        raise OSError(errno, os.strerror(errno))
 
     mnt = MountPoint.__new__(MountPoint)
     mnt.statfs = statfs
@@ -242,14 +241,14 @@ def nmount(**kwargs):
 
     if defs.nmount(iov, i + 1, flags) != 0:
         free(iov)
-        raise OSError(errno, strerror(errno))
+        raise OSError(errno, os.strerror(errno))
 
     free(iov)
 
 
 def unmount(dir, flags=0):
     if defs.unmount(dir, flags) != 0:
-        raise OSError(errno, strerror(errno))
+        raise OSError(errno, os.strerror(errno))
 
 
 def kinfo_getproc(pid):
@@ -269,7 +268,7 @@ def clock_gettime(clock):
     cdef defs.timespec tp
 
     if defs.clock_gettime(clock, &tp) != 0:
-        raise OSError(errno, strerror(errno))
+        raise OSError(errno, os.strerror(errno))
 
     return tp.tv_sec + tp.tv_nsec * 1e-9
 
@@ -282,7 +281,7 @@ def clock_settime(clock, value):
     tp.tv_nsec = frac * 1e9
 
     if defs.clock_settime(clock, &tp) != 0:
-        raise OSError(errno, strerror(errno))
+        raise OSError(errno, os.strerror(errno))
 
 
 def lchown(path, uid=-1, gid=-1, recursive=False):
@@ -313,7 +312,7 @@ def lchmod(path, mode, recursive=False):
 
 def login_tty(fd):
     if defs.login_tty(fd) == -1:
-        raise OSError(errno, strerror(errno))
+        raise OSError(errno, os.strerror(errno))
 
 
 def bitmask_to_set(n, enumeration):

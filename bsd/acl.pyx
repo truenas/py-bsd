@@ -26,9 +26,9 @@
 
 import enum
 import cython
+import os
 import pwd
 import grp
-from libc.string cimport strerror
 from libc.errno cimport errno
 from libc.stdlib cimport malloc, free
 cimport defs
@@ -163,7 +163,7 @@ cdef class ACL(object):
             raise ValueError("Invalid type for file parameter")
         
         if rv != 0:
-            raise OSError(errno, strerror(errno).decode('ascii'))
+            raise OSError(errno, os.strerror(errno))
 
     def add(self, index=None):
         cdef ACLEntry ret
@@ -171,10 +171,10 @@ cdef class ACL(object):
 
         if index:
             if defs.acl_create_entry_np(&self.acl, &entry, index) != 0:
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
         else:
             if defs.acl_create_entry(&self.acl, &entry) != 0:
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
         ret = ACLEntry.__new__(ACLEntry)
         ret.parent = self
@@ -183,7 +183,7 @@ cdef class ACL(object):
 
     def delete(self, index):
         if defs.acl_delete_entry_np(self.acl, index) != 0:
-            raise OSError(errno, strerror(errno).decode('ascii'))
+            raise OSError(errno, os.strerror(errno))
 
     def clear(self):
         while len(self.entries) > 0:
@@ -194,7 +194,7 @@ cdef class ACL(object):
             cdef int brand
 
             if defs.acl_get_brand_np(self.acl, &brand) != 0:
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
             return ACLBrand(brand)
 
@@ -281,14 +281,14 @@ cdef class ACLEntry(object):
 
     def delete(self):
         if defs.acl_delete_entry(self.parent.acl, self.entry) != 0:
-            raise OSError(errno, strerror(errno).decode('ascii'))
+            raise OSError(errno, os.strerror(errno))
 
     property tag:
         def __get__(self):
             cdef defs.acl_tag_t tag
 
             if defs.acl_get_tag_type(self.entry, &tag) != 0:
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
             return ACLEntryTag(tag)
 
@@ -297,7 +297,7 @@ cdef class ACLEntry(object):
 
             tag = value.value
             if defs.acl_set_tag_type(self.entry, tag) != 0:
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
     property id:
         def __get__(self):
@@ -308,7 +308,7 @@ cdef class ACLEntry(object):
 
             qualifier = <int*>defs.acl_get_qualifier(self.entry)
             if qualifier is NULL:
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
             return qualifier[0]
 
@@ -319,7 +319,7 @@ cdef class ACLEntry(object):
                 raise ValueError('Cannot set id on ACL of that type')
 
             if defs.acl_set_qualifier(self.entry, &qualifier) != 0:
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
     property name:
         def __get__(self):
@@ -353,7 +353,7 @@ cdef class ACLEntry(object):
             cdef defs.acl_permset_t permset
 
             if defs.acl_get_permset(self.entry, &permset) != 0:
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
             if self.parent.brand == ACLBrand.NFS4:
                 perm_enum = NFS4Perm
@@ -377,7 +377,7 @@ cdef class ACLEntry(object):
             cdef defs.acl_flagset_t flagset
 
             if defs.acl_get_flagset_np(self.entry, &flagset) != 0:
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
             result = ACLFlagSet.__new__(ACLFlagSet)
             result.flagset = flagset
@@ -392,7 +392,7 @@ cdef class ACLEntry(object):
             cdef defs.acl_entry_type_t typ
 
             if defs.acl_get_entry_type_np(self.entry, &typ) != 0:
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
             return ACLEntryType(typ)
 
@@ -408,20 +408,20 @@ cdef class ACLEntry(object):
             acl = defs.acl_init(0)
 
             if <void*>acl == NULL:
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
             if defs.acl_create_entry(&acl, &entry) != 0:
                 defs.acl_free(<void*>acl)
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
             if defs.acl_copy_entry(entry, self.entry) != 0:
                 defs.acl_free(<void*>acl)
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
             result = defs.acl_to_text(acl, NULL)
             if result == NULL:
                 defs.acl_free(<void*>acl)
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
             defs.acl_free(<void*>acl)
             return result.decode('utf8').strip()
@@ -434,19 +434,19 @@ cdef class ACLEntry(object):
             acl = defs.acl_from_text(value.encode('utf8'))
 
             if <void*>acl == NULL:
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
             if defs.acl_get_entry(acl, defs.ACL_FIRST_ENTRY, &entry) == -1:
                 defs.acl_free(<void*>acl)
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
             if defs.acl_get_brand_np(acl, &brand) != 0:
                 defs.acl_free(<void*>acl)
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
             if defs.acl_copy_entry(self.entry, entry) != 0:
                 defs.acl_free(<void*>acl)
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
             defs.acl_free(<void*>acl)
 
@@ -477,13 +477,13 @@ cdef class ACLPermissionSet(object):
 
         if value is True:
             if defs.acl_add_perm(self.permset, key.value) != 0:
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
             return
 
         if value is False:
             if defs.acl_delete_perm(self.permset, key.value) != 0:
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
             return
 
@@ -494,7 +494,7 @@ cdef class ACLPermissionSet(object):
 
     def clear(self):
         if defs.acl_clear_perms(self.permset) != 0:
-            raise OSError(errno, strerror(errno).decode('ascii'))
+            raise OSError(errno, os.strerror(errno))
 
     def keys(self):
         return list(self.perm_enum)
@@ -526,13 +526,13 @@ cdef class ACLFlagSet(object):
 
         if value is True:
             if defs.acl_add_flag_np(self.flagset, key.value) != 0:
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
             return
 
         if value is False:
             if defs.acl_delete_flag_np(self.flagset, key.value) != 0:
-                raise OSError(errno, strerror(errno).decode('ascii'))
+                raise OSError(errno, os.strerror(errno))
 
             return
 
@@ -543,7 +543,7 @@ cdef class ACLFlagSet(object):
 
     def clear(self):
         if defs.acl_clear_flags_np(self.flagset) != 0:
-            raise OSError(errno, strerror(errno).decode('ascii'))
+            raise OSError(errno, os.strerror(errno))
 
     def keys(self):
         return list(NFS4Flag)

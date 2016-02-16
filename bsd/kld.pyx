@@ -24,8 +24,8 @@
 # SUCH DAMAGE.
 #
 
+import os
 import cython
-from libc.string cimport strerror
 from libc.errno cimport errno
 from libc.stdlib cimport malloc, free
 cimport defs
@@ -39,7 +39,7 @@ cdef class KernelModule(object):
 
     def unload(self):
         if defs.kldunload(self.id) != 0:
-            raise OSError(errno, strerror(errno))
+            raise OSError(errno, os.strerror(errno))
 
     def __str__(self):
         return "<bsd.kld.KernelModule name '{0}'>".format(self.name)
@@ -87,7 +87,7 @@ def kldstat():
 
         if defs.kldstat(mod_id, stat) != 0:
             free(stat)
-            raise OSError(errno, strerror(errno))
+            raise OSError(errno, os.strerror(errno))
 
         kld = KernelModule.__new__(KernelModule)
         kld.stat = stat
@@ -97,7 +97,7 @@ def kldstat():
 def kldload(path):
     path = path.encode('ascii')
     if defs.kldload(path) == -1:
-        raise OSError(errno, strerror(errno))
+        raise OSError(errno, os.strerror(errno))
 
 
 def kldunload(name):
