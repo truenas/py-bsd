@@ -311,6 +311,11 @@ def lchmod(path, mode, recursive=False):
             os.lchmod(os.path.join(root, n), mode)
 
 
+def login_tty(fd):
+    if defs.login_tty(fd) == -1:
+        raise OSError(OSError(errno, strerror(errno)))
+
+
 def bitmask_to_set(n, enumeration):
     result = set()
     while n:

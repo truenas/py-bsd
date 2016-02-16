@@ -466,3 +466,7 @@ cdef extern from "devinfo.h":
     devinfo_dev *devinfo_handle_to_device(devinfo_handle_t handle);
     devinfo_res *devinfo_handle_to_resource(devinfo_handle_t handle)
     devinfo_rman *devinfo_handle_to_rman(devinfo_handle_t handle);
+
+cdef extern from "libutil.h":
+    int login_tty(int fd);
+    # expose pidfile_* functions?
