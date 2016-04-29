@@ -568,7 +568,7 @@ cdef extern from "sys/bus.h":
     ctypedef device_state device_state_t
 
 
-cdef extern from "devinfo.h" nogil:
+cdef extern from "devinfo.h":
     ctypedef uintptr_t devinfo_handle_t
     ctypedef device_state_t devinfo_state_t
 
