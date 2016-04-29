@@ -1,3 +1,4 @@
+# cython: c_string_type=unicode, c_string_encoding=utf-8
 #-
 # Copyright (c) 2015 iXsystems, Inc.
 # All rights reserved.
@@ -263,7 +264,7 @@ cdef class OpenFile(object):
 
     property path:
         def __get__(self):
-            return self.fs.fs_path
+            return self.fs.fs_path or None
 
     property refcount:
         def __get__(self):
