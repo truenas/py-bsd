@@ -56,7 +56,7 @@ cdef extern from "sys/types.h":
     ctypedef char* caddr_t
 
 
-cdef extern from "sys/mount.h":
+cdef extern from "sys/mount.h" nogil:
     enum:
         MNAMELEN
         MFSNAMELEN
@@ -123,7 +123,7 @@ cdef extern from "sys/time.h":
         suseconds_t tv_usec
 
 
-cdef extern from "time.h":
+cdef extern from "time.h" nogil:
     ctypedef int clockid_t
 
     cdef struct timespec:
@@ -246,11 +246,11 @@ cdef extern from "sys/user.h":
         long	ki_tdflags
 
 
-cdef extern from "libutil.h":
+cdef extern from "libutil.h" nogil:
     kinfo_proc* kinfo_getproc(pid_t pid)
 
 
-cdef extern from "libprocstat.h":
+cdef extern from "libprocstat.h" nogil:
     enum:
         PS_FST_TYPE_VNODE
         PS_FST_TYPE_FIFO
@@ -341,36 +341,49 @@ cdef extern from "libprocstat.h":
         pass
 
     cdef struct vnstat:
-        uint64_t vn_fileid;
-        uint64_t vn_size;
-        char *vn_mntdir;
-        uint32_t vn_dev;
-        uint32_t vn_fsid;
-        int	 vn_type;
-        uint16_t vn_mode;
-        char vn_devname[SPECNAMELEN + 1];
+        uint64_t vn_fileid
+        uint64_t vn_size
+        char *vn_mntdir
+        uint32_t vn_dev
+        uint32_t vn_fsid
+        int	vn_type
+        uint16_t vn_mode
+        char vn_devname[SPECNAMELEN + 1]
 
-    void procstat_close(procstat *procstat);
-    void procstat_freeargv(procstat *procstat);
-    void procstat_freeenvv(procstat *procstat);
-    void procstat_freegroups(procstat *procstat, gid_t *groups);
-    void procstat_freeprocs(procstat *procstat, kinfo_proc *p);
-    void procstat_freefiles(procstat *procstat,  filestat_list *head);
-    filestat_list *procstat_getfiles(procstat *procstat, kinfo_proc *kp, int mmapped);
-    kinfo_proc *procstat_getprocs(procstat *procstat, int what, int arg, unsigned int *count);
-    int	procstat_get_pipe_info(procstat *procstat, filestat *fst, pipestat *pipe, char *errbuf);
-    int	procstat_get_pts_info(procstat *procstat, filestat *fst, ptsstat *pts, char *errbuf);
-    int	procstat_get_sem_info(procstat *procstat, filestat *fst, semstat *sem, char *errbuf);
-    int	procstat_get_shm_info(procstat *procstat, filestat *fst, shmstat *shm, char *errbuf);
-    int	procstat_get_socket_info(procstat *procstat, filestat *fst, sockstat *sock, char *errbuf);
-    int	procstat_get_vnode_info(procstat *procstat, filestat *fst, vnstat *vn, char *errbuf);
-    char **procstat_getargv(procstat *procstat, kinfo_proc *p, size_t nchr);
-    char **procstat_getenvv(procstat *procstat, kinfo_proc *p, size_t nchr);
-    int	procstat_getpathname(procstat *procstat, kinfo_proc *kp, char *pathname, size_t maxlen);
+    void procstat_close(procstat *procstat)
+    void procstat_freeargv(procstat *procstat)
+    void procstat_freeenvv(procstat *procstat)
+    void procstat_freegroups(procstat *procstat, gid_t *groups)
+    void procstat_freeprocs(procstat *procstat, kinfo_proc *p)
+    void procstat_freefiles(procstat *procstat,  filestat_list *head)
+    filestat_list *procstat_getfiles(procstat *procstat, kinfo_proc *kp, int mmapped)
+    kinfo_proc *procstat_getprocs(procstat *procstat, int what, int arg, unsigned int *count)
+    int	procstat_get_pipe_info(procstat *procstat, filestat *fst, pipestat *pipe, char *errbuf)
+    int	procstat_get_pts_info(procstat *procstat, filestat *fst, ptsstat *pts, char *errbuf)
+    int	procstat_get_sem_info(procstat *procstat, filestat *fst, semstat *sem, char *errbuf)
+    int	procstat_get_shm_info(procstat *procstat, filestat *fst, shmstat *shm, char *errbuf)
+    int	procstat_get_socket_info(procstat *procstat, filestat *fst, sockstat *sock, char *errbuf)
+    int	procstat_get_vnode_info(procstat *procstat, filestat *fst, vnstat *vn, char *errbuf)
+    char **procstat_getargv(procstat *procstat, kinfo_proc *p, size_t nchr)
+    char **procstat_getenvv(procstat *procstat, kinfo_proc *p, size_t nchr)
+    int	procstat_getpathname(procstat *procstat, kinfo_proc *kp, char *pathname, size_t maxlen)
     procstat *procstat_open_sysctl();
 
 
 cdef extern from "sys/sysctl.h":
+    enum:
+        KERN_PROC_ALL
+        KERN_PROC_PID
+        KERN_PROC_PGRP
+        KERN_PROC_SESSION
+        KERN_PROC_TTY
+        KERN_PROC_UID
+        KERN_PROC_RUID
+        KERN_PROC_PROC
+        KERN_PROC_RGID
+        KERN_PROC_GID
+        KERN_PROC_INC_THREAD
+
     int sysctl(int *name, unsigned int namelen, void *oldp, size_t *oldlenp,
         void *newp, size_t newlen)
     int sysctlbyname(char *name, void *oldp, size_t *oldlenp, void *newp,
@@ -394,7 +407,7 @@ cdef extern from "sys/linker.h":
     int kldnext(int fileid)
     int kldstat(int fileid, kld_file_stat* stat)
 
-cdef extern from "sys/extattr.h":
+cdef extern from "sys/extattr.h" nogil:
     enum:
         EXTATTR_NAMESPACE_EMPTY
         EXTATTR_NAMESPACE_USER
@@ -555,7 +568,7 @@ cdef extern from "sys/bus.h":
     ctypedef device_state device_state_t
 
 
-cdef extern from "devinfo.h":
+cdef extern from "devinfo.h" nogil:
     ctypedef uintptr_t devinfo_handle_t
     ctypedef device_state_t devinfo_state_t
 

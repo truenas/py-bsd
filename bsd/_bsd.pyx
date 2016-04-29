@@ -27,10 +27,10 @@
 import os
 import enum
 import math
-import resource
 import cython
 from libc.errno cimport errno
 from libc.stdlib cimport malloc, free
+from libc.string cimport memcpy
 from posix.stat cimport *
 cimport defs
 
@@ -121,6 +121,20 @@ class VnodeType(enum.IntEnum):
     VFIFO = defs.PS_FST_VTYPE_VFIFO
     VBAD = defs.PS_FST_VTYPE_VBAD
     UNKNOWN = defs.PS_FST_VTYPE_UNKNOWN
+
+
+class ProcessLookupPredicate(enum.IntEnum):
+    ALL = defs.KERN_PROC_ALL
+    PID = defs.KERN_PROC_PID
+    PGRP = defs.KERN_PROC_PGRP
+    SESSION = defs.KERN_PROC_SESSION
+    TTY = defs.KERN_PROC_TTY
+    UID = defs.KERN_PROC_UID
+    RUID = defs.KERN_PROC_RUID
+    PROC = defs.KERN_PROC_PROC
+    RGID = defs.KERN_PROC_RGID
+    GID = defs.KERN_PROC_GID
+    INC_THREAD = defs.KERN_PROC_INC_THREAD
 
 
 cdef class MountPoint(object):
@@ -305,6 +319,12 @@ cdef class Process(object):
         if self.free:
             free(self.proc)
 
+    def __repr__(self):
+        return str(self)
+
+    def __str__(self):
+        return "<bsd.Process '{0}' pid {1}>".format(self.command, self.pid)
+
     def __getstate__(self):
         return {
             'pid': self.pid,
@@ -343,6 +363,9 @@ cdef class Process(object):
             cdef defs.filestat* fs
 
             ps = defs.procstat_open_sysctl()
+            if ps == NULL:
+                raise OSError(errno, os.strerror(errno))
+
             fs_list = defs.procstat_getfiles(ps, self.proc, 0)
             fs = fs_list.stqh_first
 
@@ -435,6 +458,44 @@ def kinfo_getproc(pid):
     ret = Process.__new__(Process)
     ret.proc = proc
     return ret
+
+
+def getprocs(predicate, arg=0):
+    cdef Process proc
+    cdef defs.procstat *ps
+    cdef defs.kinfo_proc *ret
+    cdef defs.kinfo_proc *tmp
+    cdef unsigned int count
+    cdef int c_predicate = 0
+    cdef int c_arg = 0
+
+    if not isinstance(predicate, ProcessLookupPredicate):
+        raise ValueError('predicate must be ProcessLookupPredicate')
+
+    c_predicate = predicate
+    c_arg = arg
+
+    ps = defs.procstat_open_sysctl()
+    if ps == NULL:
+        raise OSError(errno, os.strerror(errno))
+
+    with nogil:
+        ret = defs.procstat_getprocs(ps, c_predicate, c_arg, &count)
+
+    if ret == NULL:
+        raise OSError(errno, os.strerror(errno))
+
+    for i in range(0, count):
+        tmp = <defs.kinfo_proc *>malloc(sizeof(defs.kinfo_proc))
+        memcpy(tmp, &ret[i], sizeof(defs.kinfo_proc))
+
+        proc = Process.__new__(Process)
+        proc.proc = tmp
+        proc.free = True
+        yield proc
+
+    defs.procstat_freeprocs(ps, ret)
+    defs.procstat_close(ps)
 
 
 def clock_gettime(clock):
