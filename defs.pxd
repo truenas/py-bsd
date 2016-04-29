@@ -28,6 +28,11 @@ from libc.stdint cimport *
 from posix.types cimport *
 
 
+cdef extern from "limits.h":
+    enum:
+        _POSIX2_LINE_MAX
+
+
 cdef extern from "sys/uio.h":
     cdef struct iovec:
         void* iov_base
@@ -37,6 +42,7 @@ cdef extern from "sys/uio.h":
 cdef extern from "sys/param.h":
     enum:
         MAXPATHLEN
+        SPECNAMELEN
 
 
 cdef extern from "sys/types.h":
@@ -244,6 +250,126 @@ cdef extern from "libutil.h":
     kinfo_proc* kinfo_getproc(pid_t pid)
 
 
+cdef extern from "libprocstat.h":
+    enum:
+        PS_FST_TYPE_VNODE
+        PS_FST_TYPE_FIFO
+        PS_FST_TYPE_SOCKET
+        PS_FST_TYPE_PIPE
+        PS_FST_TYPE_PTS
+        PS_FST_TYPE_KQUEUE
+        PS_FST_TYPE_CRYPTO
+        PS_FST_TYPE_MQUEUE
+        PS_FST_TYPE_SHM
+        PS_FST_TYPE_SEM
+        PS_FST_TYPE_UNKNOWN
+        PS_FST_TYPE_NONE
+
+    enum:
+        PS_FST_VTYPE_VNON
+        PS_FST_VTYPE_VREG
+        PS_FST_VTYPE_VDIR
+        PS_FST_VTYPE_VBLK
+        PS_FST_VTYPE_VCHR
+        PS_FST_VTYPE_VLNK
+        PS_FST_VTYPE_VSOCK
+        PS_FST_VTYPE_VFIFO
+        PS_FST_VTYPE_VBAD
+        PS_FST_VTYPE_UNKNOWN
+
+    enum:
+        PS_FST_FFLAG_READ
+        PS_FST_FFLAG_WRITE
+        PS_FST_FFLAG_NONBLOCK
+        PS_FST_FFLAG_APPEND
+        PS_FST_FFLAG_SHLOCK
+        PS_FST_FFLAG_EXLOCK
+        PS_FST_FFLAG_ASYNC
+        PS_FST_FFLAG_SYNC
+        PS_FST_FFLAG_NOFOLLOW
+        PS_FST_FFLAG_CREAT
+        PS_FST_FFLAG_TRUNC
+        PS_FST_FFLAG_EXCL
+        PS_FST_FFLAG_DIRECT
+        PS_FST_FFLAG_EXEC
+        PS_FST_FFLAG_HASLOCK
+
+    enum:
+        PS_FST_UFLAG_RDIR
+        PS_FST_UFLAG_CDIR
+        PS_FST_UFLAG_JAIL
+        PS_FST_UFLAG_TRACE
+        PS_FST_UFLAG_TEXT
+        PS_FST_UFLAG_MMAP
+        PS_FST_UFLAG_CTTY
+
+    cdef struct procstat:
+        pass
+
+    cdef struct stailq_entry:
+        filestat *stqe_next
+
+    cdef struct filestat:
+        int fs_type
+        int fs_flags
+        int fs_fflags
+        int fs_uflags
+        int fs_fd
+        int fs_ref_count
+        off_t fs_offset
+        void *fs_typedep
+        char *fs_path
+        stailq_entry next
+
+    cdef struct filestat_list:
+        filestat *stqh_first
+        filestat **stqh_last
+
+    cdef struct pipestat:
+        pass
+
+    cdef struct ptsstat:
+        pass
+
+    cdef struct semstat:
+        pass
+
+    cdef struct shmstat:
+        pass
+
+    cdef struct sockstat:
+        pass
+
+    cdef struct vnstat:
+        uint64_t vn_fileid;
+        uint64_t vn_size;
+        char *vn_mntdir;
+        uint32_t vn_dev;
+        uint32_t vn_fsid;
+        int	 vn_type;
+        uint16_t vn_mode;
+        char vn_devname[SPECNAMELEN + 1];
+
+    void procstat_close(procstat *procstat);
+    void procstat_freeargv(procstat *procstat);
+    void procstat_freeenvv(procstat *procstat);
+    void procstat_freegroups(procstat *procstat, gid_t *groups);
+    void procstat_freeprocs(procstat *procstat, kinfo_proc *p);
+    void procstat_freefiles(procstat *procstat,  filestat_list *head);
+    filestat_list *procstat_getfiles(procstat *procstat, kinfo_proc *kp, int mmapped);
+    kinfo_proc *procstat_getprocs(procstat *procstat, int what, int arg, unsigned int *count);
+    int	procstat_get_pipe_info(procstat *procstat, filestat *fst, pipestat *pipe, char *errbuf);
+    int	procstat_get_pts_info(procstat *procstat, filestat *fst, ptsstat *pts, char *errbuf);
+    int	procstat_get_sem_info(procstat *procstat, filestat *fst, semstat *sem, char *errbuf);
+    int	procstat_get_shm_info(procstat *procstat, filestat *fst, shmstat *shm, char *errbuf);
+    int	procstat_get_socket_info(procstat *procstat, filestat *fst, sockstat *sock, char *errbuf);
+    int	procstat_get_vnode_info(procstat *procstat, filestat *fst, vnstat *vn, char *errbuf);
+    char **procstat_getargv(procstat *procstat, kinfo_proc *p, size_t nchr);
+    char **procstat_getenvv(procstat *procstat, kinfo_proc *p, size_t nchr);
+    int	procstat_getpathname(procstat *procstat, kinfo_proc *kp, char *pathname, size_t maxlen);
+    procstat *procstat_open_sysctl();
+
+
 cdef extern from "sys/sysctl.h":
     int sysctl(int *name, unsigned int namelen, void *oldp, size_t *oldlenp,
         void *newp, size_t newlen)
@@ -430,7 +556,6 @@ cdef extern from "sys/bus.h":
 
 
 cdef extern from "devinfo.h":
-
     ctypedef uintptr_t devinfo_handle_t
     ctypedef device_state_t devinfo_state_t
 

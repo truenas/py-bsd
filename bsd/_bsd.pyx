@@ -67,6 +67,62 @@ class ClockType(enum.IntEnum):
     UPTIME_FAST = defs.CLOCK_UPTIME_FAST
 
 
+class DescriptorType(enum.IntEnum):
+    VNODE = defs.PS_FST_TYPE_VNODE
+    FIFO = defs.PS_FST_TYPE_FIFO
+    SOCKET = defs.PS_FST_TYPE_SOCKET
+    PIPE = defs.PS_FST_TYPE_PIPE
+    PTS = defs.PS_FST_TYPE_PTS
+    KQUEUE = defs.PS_FST_TYPE_KQUEUE
+    CRYPTO = defs.PS_FST_TYPE_CRYPTO
+    MQUEUE = defs.PS_FST_TYPE_MQUEUE
+    SHM = defs.PS_FST_TYPE_SHM
+    SEM = defs.PS_FST_TYPE_SEM
+    UNKNOWN = defs.PS_FST_TYPE_UNKNOWN
+    NONE = defs.PS_FST_TYPE_NONE
+
+
+class DescriptorFlags(enum.IntEnum):
+    READ = defs.PS_FST_FFLAG_READ
+    WRITE = defs.PS_FST_FFLAG_WRITE
+    NONBLOCK = defs.PS_FST_FFLAG_NONBLOCK
+    APPEND = defs.PS_FST_FFLAG_APPEND
+    SHLOCK = defs.PS_FST_FFLAG_SHLOCK
+    EXLOCK = defs.PS_FST_FFLAG_EXLOCK
+    ASYNC = defs.PS_FST_FFLAG_ASYNC
+    SYNC = defs.PS_FST_FFLAG_SYNC
+    NOFOLLOW = defs.PS_FST_FFLAG_NOFOLLOW
+    CREAT = defs.PS_FST_FFLAG_CREAT
+    TRUNC = defs.PS_FST_FFLAG_TRUNC
+    EXCL = defs.PS_FST_FFLAG_EXCL
+    DIRECT = defs.PS_FST_FFLAG_DIRECT
+    EXEC = defs.PS_FST_FFLAG_EXEC
+    HASLOCK = defs.PS_FST_FFLAG_HASLOCK
+
+
+class DescriptorUseFlags(enum.IntEnum):
+    RDIR = defs.PS_FST_UFLAG_RDIR
+    CDIR = defs.PS_FST_UFLAG_CDIR
+    JAIL = defs.PS_FST_UFLAG_JAIL
+    TRACE = defs.PS_FST_UFLAG_TRACE
+    TEXT = defs.PS_FST_UFLAG_TEXT
+    MMAP = defs.PS_FST_UFLAG_MMAP
+    CTTY = defs.PS_FST_UFLAG_CTTY
+
+
+class VnodeType(enum.IntEnum):
+    VNON = defs.PS_FST_VTYPE_VNON
+    VREG = defs.PS_FST_VTYPE_VREG
+    VDIR = defs.PS_FST_VTYPE_VDIR
+    VBLK = defs.PS_FST_VTYPE_VBLK
+    VCHR = defs.PS_FST_VTYPE_VCHR
+    VLNK = defs.PS_FST_VTYPE_VLNK
+    VSOCK = defs.PS_FST_VTYPE_VSOCK
+    VFIFO = defs.PS_FST_VTYPE_VFIFO
+    VBAD = defs.PS_FST_VTYPE_VBAD
+    UNKNOWN = defs.PS_FST_VTYPE_UNKNOWN
+
+
 cdef class MountPoint(object):
     cdef defs.statfs* statfs
     cdef bint free
@@ -149,6 +205,95 @@ cdef class MountPoint(object):
             return self.statfs.f_fsid.val[0], self.statfs.f_fsid.val[1]
 
 
+cdef class OpenFile(object):
+    cdef defs.procstat* ps
+    cdef defs.filestat* fs
+
+    cdef init(self):
+        pass
+
+    def __repr__(self):
+        return str(self)
+
+    def __str__(self):
+        return "<bsd.OpenFile path '{0}' type {1}>".format(
+            self.path,
+            str(self.type)
+        )
+
+    def __getstate__(self):
+        return {
+            'type': self.type.name,
+            'flags': [i.name for i in self.fflags],
+            'uflags': [i.name for i in self.uflags],
+            'fd': self.fd,
+            'path': self.path,
+            'refcount': self.refcount
+        }
+
+    property type:
+        def __get__(self):
+            return DescriptorType(self.fs.fs_type)
+
+    property fflags:
+        def __get__(self):
+            return bitmask_to_set(self.fs.fs_fflags, DescriptorFlags)
+
+    property uflags:
+        def __get__(self):
+            return bitmask_to_set(self.fs.fs_uflags, DescriptorUseFlags)
+
+    property fd:
+        def __get__(self):
+            return self.fs.fs_fd
+
+    property path:
+        def __get__(self):
+            return self.fs.fs_path
+
+    property refcount:
+        def __get__(self):
+            return self.fs.fs_ref_count
+
+
+cdef class OpenVnode(OpenFile):
+    cdef defs.vnstat vn
+
+    cdef init(self):
+        cdef char errbuf[defs._POSIX2_LINE_MAX];
+
+        err = defs.procstat_get_vnode_info(self.ps, self.fs, &self.vn, errbuf)
+        if err != 0:
+            pass
+
+    def __getstate__(self):
+        d = super(OpenVnode, self).__getstate__()
+        d.update({
+            'devname': self.devname,
+            'mntdir': self.mntdir,
+            'dev': self.dev,
+            'fsid': self.fsid
+        })
+
+        return d
+
+    property devname:
+        def __get__(self):
+            return self.vn.vn_devname or None
+
+    property mntdir:
+        def __get__(self):
+            return self.vn.vn_mntdir or None
+
+    property dev:
+        def __get__(self):
+            return self.vn.vn_dev
+
+    property fsid:
+        def __get__(self):
+            return self.vn.vn_fsid
+
+
 cdef class Process(object):
     cdef defs.kinfo_proc* proc
     cdef bint free
@@ -164,7 +309,8 @@ cdef class Process(object):
         return {
             'pid': self.pid,
             'ppid': self.ppid,
-            'command': self.command
+            'command': self.command,
+            'files': [i.__getstate__() for i in self.files]
         }
 
     property pid:
@@ -188,6 +334,33 @@ cdef class Process(object):
             })
 
             return ret
+
+    property files:
+        def __get__(self):
+            cdef OpenFile file
+            cdef defs.procstat* ps
+            cdef defs.filestat_list* fs_list
+            cdef defs.filestat* fs
+
+            ps = defs.procstat_open_sysctl()
+            fs_list = defs.procstat_getfiles(ps, self.proc, 0)
+            fs = fs_list.stqh_first
+
+            type_mapping = {
+                defs.PS_FST_TYPE_VNODE: OpenVnode
+            }
+
+            while fs != NULL:
+                cls = type_mapping.get(fs.fs_type, OpenFile)
+                file = cls.__new__(cls)
+                file.ps = ps
+                file.fs = fs
+                file.init()
+                yield file
+
+                fs = fs.next.stqe_next
+
+            defs.procstat_close(ps)
 
 
 def getmntinfo():

@@ -32,7 +32,7 @@ import six
 
 
 extensions = [
-    Extension("bsd._bsd", ["bsd/_bsd.pyx"], extra_compile_args=["-g", "-O0"], extra_link_args=["-lutil"]),
+    Extension("bsd._bsd", ["bsd/_bsd.pyx"], extra_compile_args=["-g", "-O0"], extra_link_args=["-lutil", "-lprocstat"]),
     Extension("bsd.sysctl", ["bsd/sysctl.pyx"], extra_compile_args=["-g", "-O0"]),
     Extension("bsd.kld", ["bsd/kld.pyx"], extra_compile_args=["-g", "-O0"]),
     Extension("bsd.acl", ["bsd/acl.pyx"], extra_compile_args=["-g", "-O0"]),
