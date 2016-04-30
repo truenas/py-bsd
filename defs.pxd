@@ -56,6 +56,11 @@ cdef extern from "sys/types.h":
     ctypedef char* caddr_t
 
 
+cdef extern from "sys/socket.h":
+    cdef struct sockaddr_storage:
+        pass
+
+
 cdef extern from "sys/mount.h" nogil:
     enum:
         MNAMELEN
@@ -338,7 +343,18 @@ cdef extern from "libprocstat.h" nogil:
         pass
 
     cdef struct sockstat:
-        pass
+        uint64_t inp_ppcb
+        uint64_t so_addr
+        uint64_t so_pcb
+        uint64_t unp_conn
+        int dom_family
+        int proto
+        int	so_rcv_sb_state
+        int	so_snd_sb_state
+        sockaddr_storage sa_local
+        sockaddr_storage sa_peer
+        int	type
+        char dname[32]
 
     cdef struct vnstat:
         uint64_t vn_fileid

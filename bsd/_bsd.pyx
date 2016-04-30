@@ -309,6 +309,33 @@ cdef class OpenVnode(OpenFile):
             return self.vn.vn_fsid
 
 
+cdef class OpenSocket(OpenFile):
+    cdef defs.sockstat ss
+
+    cdef init(self):
+        pass
+
+    property dname:
+        def __get__(self):
+            return self.ss.dname
+
+    property af:
+        def __get__(self):
+            return self.ss.dom_family
+
+    property proto:
+        def __get__(self):
+            return self.ss.proto
+
+    property local_address:
+        def __get__ (self):
+            pass
+
+    property peer_address:
+        def __get__ (self):
+            pass
+
+
 cdef class Process(object):
     cdef defs.kinfo_proc* proc
     cdef bint free
@@ -331,6 +358,9 @@ cdef class Process(object):
             'pid': self.pid,
             'ppid': self.ppid,
             'command': self.command,
+            'path': self.path,
+            'argv': list(self.argv),
+            'env': list(self.env),
             'files': [i.__getstate__() for i in self.files]
         }
 
@@ -345,6 +375,68 @@ cdef class Process(object):
     property command:
         def __get__(self):
             return self.proc.ki_comm
+
+    property path:
+        def __get__(self):
+            cdef defs.procstat *ps
+            cdef char buf[defs._POSIX2_LINE_MAX]
+
+            ps = defs.procstat_open_sysctl()
+            if ps == NULL:
+                raise OSError(errno, os.strerror(errno))
+
+            if defs.procstat_getpathname(ps, self.proc, buf, sizeof(buf) - 1) < 0:
+                defs.procstat_close(ps)
+                return None
+
+            defs.procstat_close(ps)
+            return buf
+
+    property argv:
+        def __get__(self):
+            cdef defs.procstat *ps
+            cdef char **c_argv
+            cdef char *ptr
+
+            ps = defs.procstat_open_sysctl()
+            if ps == NULL:
+                raise OSError(errno, os.strerror(errno))
+
+            c_argv = defs.procstat_getargv(ps, self.proc, 0)
+            i = 0
+            while True:
+                ptr = c_argv[i]
+                if ptr == NULL:
+                    break
+
+                yield ptr
+                i += 1
+
+            defs.procstat_freeargv(ps)
+            defs.procstat_close(ps)
+
+    property env:
+        def __get__(self):
+            cdef defs.procstat* ps
+            cdef char **c_env
+            cdef char *ptr
+
+            ps = defs.procstat_open_sysctl()
+            if ps == NULL:
+                raise OSError(errno, os.strerror(errno))
+
+            c_env = defs.procstat_getenvv(ps, self.proc, 0)
+            i = 0
+            while True:
+                ptr = c_env[i]
+                if ptr == NULL:
+                    break
+
+                yield ptr
+                i += 1
+
+            defs.procstat_freeenvv(ps)
+            defs.procstat_close(ps)
 
     property rusage:
         def __get__(self):
@@ -371,7 +463,8 @@ cdef class Process(object):
             fs = fs_list.stqh_first
 
             type_mapping = {
-                defs.PS_FST_TYPE_VNODE: OpenVnode
+                defs.PS_FST_TYPE_VNODE: OpenVnode,
+                defs.PS_FST_TYPE_SOCKET: OpenSocket
             }
 
             while fs != NULL:
