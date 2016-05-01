@@ -29,6 +29,7 @@ import os
 import enum
 import math
 import cython
+from datetime import datetime
 from libc.errno cimport errno
 from libc.stdlib cimport malloc, free
 from libc.string cimport memcpy
@@ -437,6 +438,10 @@ cdef class Process(object):
 
             defs.procstat_freeenvv(ps)
             defs.procstat_close(ps)
+
+    property started_at:
+        def __get__(self):
+            return datetime.fromtimestamp(convert_timeval(&self.proc.ki_start))
 
     property rusage:
         def __get__(self):
