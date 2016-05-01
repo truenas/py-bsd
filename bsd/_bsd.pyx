@@ -408,6 +408,10 @@ cdef class Process(object):
         def __get__(self):
             return self.proc.ki_comm
 
+    property uid:
+        def __get__(self):
+            return self.proc.ki_uid
+
     property path:
         def __get__(self):
             cdef defs.procstat *ps
