@@ -54,11 +54,39 @@ cdef extern from "sys/types.h":
     ctypedef uintptr_t segsz_t
     ctypedef uintptr_t vm_size_t
     ctypedef char* caddr_t
+    ctypedef short in_port_t
+    ctypedef int in_addr
 
 
 cdef extern from "sys/socket.h":
+    ctypedef int sa_family_t
+
     cdef struct sockaddr_storage:
-        pass
+        unsigned char ss_len
+        sa_family_t ss_family
+
+
+cdef extern from "netinet/in.h":
+    ctypedef struct in_addr_t:
+        uint32_t s_addr
+
+    cdef struct sockaddr_in:
+        uint8_t sin_len
+        sa_family_t sin_family
+        in_port_t sin_port
+        in_addr_t sin_addr
+        char sin_zero[8]
+
+    cdef struct in6_addr:
+        uint8_t s6_addr[16]
+
+    cdef struct sockaddr_in6:
+        uint8_t sin6_len
+        sa_family_t sin6_family
+        in_port_t sin6_port
+        uint32_t sin6_flowinfo
+        in6_addr sin6_addr
+        uint32_t sin6_scope_id
 
 
 cdef extern from "sys/mount.h" nogil:

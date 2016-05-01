@@ -28,6 +28,8 @@
 import os
 import enum
 import math
+import socket
+import ipaddress
 import cython
 from datetime import datetime
 from libc.errno cimport errno
@@ -314,7 +316,21 @@ cdef class OpenSocket(OpenFile):
     cdef defs.sockstat ss
 
     cdef init(self):
-        pass
+        cdef char errbuf[defs._POSIX2_LINE_MAX];
+
+        err = defs.procstat_get_socket_info(self.ps, self.fs, &self.ss, errbuf)
+        if err != 0:
+            pass
+
+    def __getstate__(self):
+        d = super(OpenSocket, self).__getstate__()
+        d.update({
+            'dname': self.dname,
+            'af': self.af,
+            'proto': self.proto,
+            'local_address': list(self.local_address)
+        })
+
 
     property dname:
         def __get__(self):
@@ -330,7 +346,16 @@ cdef class OpenSocket(OpenFile):
 
     property local_address:
         def __get__ (self):
-            pass
+            cdef defs.sockaddr_in *sin
+            cdef defs.sockaddr_in6 *sin6
+
+            if self.af == socket.AF_INET:
+                sin = <defs.sockaddr_in *>&self.ss.sa_local
+                return ipaddress.ip_address(sin.sin_addr.s_addr), socket.ntohs(sin.sin_port)
+
+            if self.af == socket.AF_INET6:
+                sin6 = <defs.sockaddr_in6 *>&self.ss.sa_local
+                return ipaddress.ip_address(<bytes>sin6.sin6_addr.s6_addr[:16]), socket.ntohs(sin6.sin6_port)
 
     property peer_address:
         def __get__ (self):
@@ -404,6 +429,9 @@ cdef class Process(object):
                 raise OSError(errno, os.strerror(errno))
 
             c_argv = defs.procstat_getargv(ps, self.proc, 0)
+            if c_argv == NULL:
+                raise OSError(errno, os.strerror(errno))
+
             i = 0
             while True:
                 ptr = c_argv[i]
@@ -427,6 +455,9 @@ cdef class Process(object):
                 raise OSError(errno, os.strerror(errno))
 
             c_env = defs.procstat_getenvv(ps, self.proc, 0)
+            if c_env == NULL:
+                raise OSError(errno, os.strerror(errno))
+
             i = 0
             while True:
                 ptr = c_env[i]
