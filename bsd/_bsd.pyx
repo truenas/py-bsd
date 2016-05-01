@@ -328,10 +328,23 @@ cdef class OpenSocket(OpenFile):
             'dname': self.dname,
             'af': self.af,
             'proto': self.proto,
-            'local_address': self.local_address
+            'local_address': self.local_address,
+            'peer_address': self.peer_address
         })
 
         return d
+
+    cdef get_sock_address(self, defs.sockaddr_storage *ss):
+        cdef defs.sockaddr_in *sin
+        cdef defs.sockaddr_in6 *sin6
+
+        if self.af == socket.AF_INET:
+            sin = <defs.sockaddr_in *>&ss
+            return ipaddress.ip_address(sin.sin_addr.s_addr), socket.ntohs(sin.sin_port)
+
+        if self.af == socket.AF_INET6:
+            sin6 = <defs.sockaddr_in6 *>&ss
+            return ipaddress.ip_address(<bytes>sin6.sin6_addr.s6_addr[:16]), socket.ntohs(sin6.sin6_port)
 
     property dname:
         def __get__(self):
@@ -347,20 +360,12 @@ cdef class OpenSocket(OpenFile):
 
     property local_address:
         def __get__ (self):
-            cdef defs.sockaddr_in *sin
-            cdef defs.sockaddr_in6 *sin6
-
-            if self.af == socket.AF_INET:
-                sin = <defs.sockaddr_in *>&self.ss.sa_local
-                return ipaddress.ip_address(sin.sin_addr.s_addr), socket.ntohs(sin.sin_port)
-
-            if self.af == socket.AF_INET6:
-                sin6 = <defs.sockaddr_in6 *>&self.ss.sa_local
-                return ipaddress.ip_address(<bytes>sin6.sin6_addr.s6_addr[:16]), socket.ntohs(sin6.sin6_port)
+            return self.get_sock_address(&self.ss.sa_local)
 
     property peer_address:
         def __get__ (self):
-            pass
+            return self.get_sock_address(&self.ss.sa_peer)
+
 
 
 cdef class Process(object):
