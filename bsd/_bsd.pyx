@@ -328,9 +328,10 @@ cdef class OpenSocket(OpenFile):
             'dname': self.dname,
             'af': self.af,
             'proto': self.proto,
-            'local_address': list(self.local_address)
+            'local_address': self.local_address
         })
 
+        return d
 
     property dname:
         def __get__(self):
