@@ -339,11 +339,11 @@ cdef class OpenSocket(OpenFile):
         cdef defs.sockaddr_in6 *sin6
 
         if self.af == socket.AF_INET:
-            sin = <defs.sockaddr_in *>&ss
-            return ipaddress.ip_address(sin.sin_addr.s_addr), socket.ntohs(sin.sin_port)
+            sin = <defs.sockaddr_in *>ss
+            return ipaddress.ip_address(socket.ntohl(sin.sin_addr.s_addr)), socket.ntohs(sin.sin_port)
 
         if self.af == socket.AF_INET6:
-            sin6 = <defs.sockaddr_in6 *>&ss
+            sin6 = <defs.sockaddr_in6 *>ss
             return ipaddress.ip_address(<bytes>sin6.sin6_addr.s6_addr[:16]), socket.ntohs(sin6.sin6_port)
 
     property dname:
