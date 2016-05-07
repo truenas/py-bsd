@@ -417,7 +417,7 @@ cdef class Process(object):
     property cwd:
         def __get__(self):
             for i in self.files:
-                if i.uflags & DescriptorUseFlags.CDIR:
+                if DescriptorUseFlags.CDIR in i.uflags:
                     return i.path
 
             return None
