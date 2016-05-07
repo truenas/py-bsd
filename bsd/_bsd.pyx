@@ -393,6 +393,8 @@ cdef class Process(object):
             'path': self.path,
             'argv': list(self.argv),
             'env': list(self.env),
+            'cwd': self.cwd,
+            'started_at': self.started_at,
             'files': [i.__getstate__() for i in self.files]
         }
 
@@ -411,6 +413,14 @@ cdef class Process(object):
     property uid:
         def __get__(self):
             return self.proc.ki_uid
+
+    property cwd:
+        def __get__(self):
+            for i in self.files:
+                if i.uflags & DescriptorUseFlags.CDIR:
+                    return i.path
+
+            return None
 
     property path:
         def __get__(self):
