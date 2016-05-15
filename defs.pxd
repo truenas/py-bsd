@@ -649,6 +649,116 @@ cdef extern from "devinfo.h":
     devinfo_res *devinfo_handle_to_resource(devinfo_handle_t handle)
     devinfo_rman *devinfo_handle_to_rman(devinfo_handle_t handle);
 
+
 cdef extern from "libutil.h":
     int login_tty(int fd);
     # expose pidfile_* functions?
+
+
+cdef extern from "net/bpf.h":
+    enum:
+        BIOCGBLEN
+        BIOCSBLEN
+        BIOCSETF
+        BIOCFLUSH
+        BIOCPROMISC
+        BIOCGDLT
+        BIOCGETIF
+        BIOCSETIF
+        BIOCSRTIMEOUT
+        BIOCGRTIMEOUT
+        BIOCGSTATS
+        BIOCIMMEDIATE
+        BIOCVERSION
+        BIOCGRSIG
+        BIOCSRSIG
+        BIOCGHDRCMPLT
+        BIOCSHDRCMPLT
+        BIOCGDIRECTION
+        BIOCSDIRECTION
+        BIOCSDLT
+        BIOCGDLTLIST
+        BIOCLOCK
+        BIOCSETWF
+        BIOCFEEDBACK
+        BIOCGETBUFMODE
+        BIOCSETBUFMODE
+        BIOCGETZMAX
+        BIOCROTZBUF
+        BIOCSETZBUF
+        BIOCSETFNR
+        BIOCGTSTAMP
+        BIOCSTSTAMP
+
+    enum:
+        BPF_LD
+        BPF_LDX
+        BPF_ST
+        BPF_STX
+        BPF_ALU
+        BPF_JMP
+        BPF_RET
+        BPF_MISC
+
+    enum:
+        BPF_W
+        BPF_H
+        BPF_B
+
+    enum:
+        BPF_IMM
+        BPF_ABS
+        BPF_IND
+        BPF_MEM
+        BPF_LEN
+        BPF_MSH
+
+    enum:
+        BPF_ADD
+        BPF_SUB
+        BPF_MUL
+        BPF_DIV
+        BPF_OR
+        BPF_AND
+        BPF_LSH
+        BPF_RSH
+        BPF_NEG
+        BPF_MOD
+        BPF_XOR
+        BPF_JA
+        BPF_JEQ
+        BPF_JGT
+        BPF_JGE
+        BGP_JSET
+
+    enum:
+        BPF_K
+        BPF_X
+
+    enum:
+        BPF_A
+
+    enum:
+        BPF_TAX
+        BPF_TXA
+
+    enum bpf_direction:
+        BPF_D_IN
+        BPF_D_OUT
+        BPF_D_INOUT
+
+    cdef struct bpf_ts:
+        int64_t bs_sec
+        uint64_t bt_frac
+
+    cdef struct bpf_xhdr:
+        bpf_ts bh_tstamp
+        uint32_t bp_caplen
+        uint32_t bp_datalen
+        u_short bh_hdrlen
+
+    cdef struct bpf_insn:
+        u_short code
+        u_char jt
+        u_char jf
+        uint32_t k
