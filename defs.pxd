@@ -655,6 +655,14 @@ cdef extern from "libutil.h":
     # expose pidfile_* functions?
 
 
+cdef extern from "net/if.h":
+    enum:
+        IFNAMSIZ
+
+    cdef struct ifreq:
+        char ifr_name[IFNAMSIZ]
+
+
 cdef extern from "net/bpf.h":
     enum:
         BIOCGBLEN
@@ -723,13 +731,11 @@ cdef extern from "net/bpf.h":
         BPF_LSH
         BPF_RSH
         BPF_NEG
-        BPF_MOD
-        BPF_XOR
         BPF_JA
         BPF_JEQ
         BPF_JGT
         BPF_JGE
-        BGP_JSET
+        BPF_JSET
 
     enum:
         BPF_K
