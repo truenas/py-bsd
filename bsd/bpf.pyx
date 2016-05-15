@@ -165,5 +165,8 @@ cdef class BPF(object):
     def apply_filter(self):
         pass
 
-    def read_packet(self):
+    def read(self):
         return os.read(self.fd.fileno(), self.buffer_size)
+
+    def write(self, data):
+        os.write(self.fd.fileno(), data)
