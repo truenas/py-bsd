@@ -151,12 +151,12 @@ cdef class BPF(object):
             if ioctl(self.fd.fileno(), defs.BIOCGETIF, <void *>&ifr) != 0:
                 raise OSError(errno, os.strerror(errno))
 
-            return ifr.ifr_name
+            return ifr.ifr_name.decode('ascii')
 
         def __set__(self, value):
             cdef defs.ifreq ifr
 
-            strncpy(ifr.ifr_name, value, defs.IFNAMSIZ)
+            strncpy(ifr.ifr_name, value.encode('ascii'), defs.IFNAMSIZ)
             if ioctl(self.fd.fileno(), defs.BIOCSETIF, <void *>&ifr) != 0:
                 raise OSError(errno, os.strerror(errno))
 
@@ -191,10 +191,11 @@ cdef class BPF(object):
             ptr = self.buffer
             with nogil:
                 ret = read(fd, self.buffer, bufsize)
+                if ret < 1:
+                    break
 
             while <uintptr_t>ptr < (<uintptr_t>self.buffer + ret):
                 hdr = <defs.bpf_xhdr *>ptr
-                print(hdr.bh_hdrlen, hdr.bh_caplen)
                 yield <bytes>ptr[hdr.bh_hdrlen:hdr.bh_hdrlen+hdr.bh_caplen]
 
                 ptr += defs.BPF_WORDALIGN(hdr.bh_hdrlen+hdr.bh_caplen)
