@@ -759,8 +759,8 @@ cdef extern from "net/bpf.h":
 
     cdef struct bpf_xhdr:
         bpf_ts bh_tstamp
-        uint32_t bp_caplen
-        uint32_t bp_datalen
+        uint32_t bh_caplen
+        uint32_t bh_datalen
         u_short bh_hdrlen
 
     cdef struct bpf_insn:
@@ -768,3 +768,5 @@ cdef extern from "net/bpf.h":
         u_char jt
         u_char jf
         uint32_t k
+
+    int BPF_WORDALIGN(int x)

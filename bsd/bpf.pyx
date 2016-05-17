@@ -28,9 +28,11 @@
 import os
 import enum
 import struct
-import fcntl
+from posix.unistd cimport read, write
 from posix.ioctl cimport ioctl
 from libc.errno cimport errno
+from libc.stdlib cimport realloc, free
+from libc.stdint cimport uintptr_t
 from libc.string cimport strncpy
 cimport defs
 
@@ -108,15 +110,22 @@ class Jump(object):
 
 cdef class BPF(object):
     cdef object fd
+    cdef char *buffer
 
     def __init__(self):
         self.fd = None
+
+    def __dealloc__(self):
+        free(self.buffer)
 
     def __enter__(self):
         self.open()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
+    def __alloc_buffer(self):
+        self.buffer = <char *>realloc(<void *>self.buffer, self.buffer_size)
 
     property buffer_size:
         def __get__(self):
@@ -132,6 +141,8 @@ cdef class BPF(object):
 
             if ioctl(self.fd.fileno(), defs.BIOCSBLEN, &value) != 0:
                 raise OSError(errno, os.strerror(errno))
+
+            self.__alloc_buffer()
 
     property interface:
         def __get__(self):
@@ -158,6 +169,7 @@ cdef class BPF(object):
 
     def open(self):
         self.fd = open('/dev/bpf', 'r+b', buffering=0)
+        self.__alloc_buffer()
 
     def close(self):
         self.fd.close()
@@ -166,7 +178,26 @@ cdef class BPF(object):
         pass
 
     def read(self):
-        return os.read(self.fd.fileno(), self.buffer_size)
+        cdef char *ptr
+        cdef defs.bpf_xhdr *hdr
+        cdef int fd
+        cdef int ret
+        cdef int bufsize
+
+        fd = self.fd.fileno()
+        bufsize = self.buffer_size
+
+        while True:
+            ptr = self.buffer
+            with nogil:
+                ret = read(fd, self.buffer, bufsize)
+
+            while <uintptr_t>ptr < (<uintptr_t>self.buffer + ret):
+                hdr = <defs.bpf_xhdr *>ptr
+                print(hdr.bh_hdrlen, hdr.bh_caplen)
+                yield <bytes>ptr[hdr.bh_hdrlen:hdr.bh_hdrlen+hdr.bh_caplen]
+
+                ptr += defs.BPF_WORDALIGN(hdr.bh_hdrlen+hdr.bh_caplen)
 
     def write(self, data):
         os.write(self.fd.fileno(), data)
