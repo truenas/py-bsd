@@ -179,7 +179,7 @@ cdef class BPF(object):
 
         for idx, i in enumerate(instructions):
             stmt = <Statement>i
-            memcpy(&prog.bf_insns[i], &stmt.insn, sizeof(defs.bpf_insn))
+            memcpy(&prog.bf_insns[idx], &stmt.insn, sizeof(defs.bpf_insn))
 
         if ioctl(self.fd.fileno(), defs.BIOCSETF, &prog) != 0:
             raise OSError(errno, os.strerror(errno))
