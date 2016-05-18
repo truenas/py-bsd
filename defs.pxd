@@ -769,4 +769,8 @@ cdef extern from "net/bpf.h":
         u_char jf
         uint32_t k
 
+    cdef struct bpf_program:
+        int bf_len
+        bpf_insn *bf_insns
+
     int BPF_WORDALIGN(int x)

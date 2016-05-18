@@ -27,13 +27,12 @@
 
 import os
 import enum
-import struct
 from posix.unistd cimport read, write
 from posix.ioctl cimport ioctl
 from libc.errno cimport errno
-from libc.stdlib cimport realloc, free
+from libc.stdlib cimport malloc, realloc, free
 from libc.stdint cimport uintptr_t
-from libc.string cimport strncpy
+from libc.string cimport strncpy, memcpy
 cimport defs
 
 
@@ -88,24 +87,21 @@ class Source(enum.IntEnum):
     A = defs.BPF_A
 
 
-class Statement(object):
+cdef class Statement(object):
+    cdef defs.bpf_insn insn
+
     def __init__(self, code, k):
-        self.code = code
-        self.k = k
+        self.insn.code = code
+        self.insn.k = k
+        self.insn.jf = 0
+        self.insn.jt = 0
 
-    def __bytes__(self):
-        return struct.pack('HBBI', self.code, self.k, 0, 0)
 
-
-class Jump(object):
+cdef class Jump(Statement):
     def __init__(self, code, k, jt, jf):
-        self.code = code
-        self.k = k
-        self.jt = jt
-        self.jf = jf
-
-    def __bytes__(self):
-        return struct.pack('HBBI', self.code, self.jt, self.jf, self.k)
+        super(Jump, self).__init__(code, k)
+        self.insn.jt = jt
+        self.insn.jf = jf
 
 
 cdef class BPF(object):
@@ -137,7 +133,7 @@ cdef class BPF(object):
             return value
 
         def __set__(self, buffer_size):
-            cdef int value = <int>value
+            cdef int value = <int>buffer_size
 
             if ioctl(self.fd.fileno(), defs.BIOCSBLEN, &value) != 0:
                 raise OSError(errno, os.strerror(errno))
@@ -174,8 +170,19 @@ cdef class BPF(object):
     def close(self):
         self.fd.close()
 
-    def apply_filter(self):
-        pass
+    def apply_filter(self, instructions):
+        cdef defs.bpf_program prog
+        cdef Statement stmt
+
+        prog.bf_len = len(instructions)
+        prog.bf_insns = <defs.bpf_insn *>malloc(sizeof(defs.bpf_insn) * len(instructions))
+
+        for idx, i in enumerate(instructions):
+            stmt = <Statement>i
+            memcpy(&prog.bf_insns[i], &stmt.insn, sizeof(defs.bpf_insn))
+
+        if ioctl(self.fd.fileno(), defs.BIOCSETF, &prog) != 0:
+            raise OSError(errno, os.strerror(errno))
 
     def read(self):
         cdef char *ptr
