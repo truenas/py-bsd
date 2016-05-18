@@ -35,6 +35,8 @@ from ._bsd import MountFlags
 from ._bsd import ClockType
 from ._bsd import DescriptorType, DescriptorFlags, DescriptorUseFlags, VnodeType
 from ._bsd import ProcessLookupPredicate
+from ._bsd import SwapDevice
 from ._bsd import nmount, unmount, getmntinfo, statfs
 from ._bsd import kinfo_getproc, getprocs, clock_gettime, clock_settime
 from ._bsd import lchown, lchmod
+from ._bsd import getswapinfo
