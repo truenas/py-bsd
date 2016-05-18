@@ -641,18 +641,47 @@ cdef extern from "devinfo.h":
         unsigned long dr_start
         unsigned long dr_size
 
-    int devinfo_init();
-    int devinfo_free();
-    int devinfo_foreach_rman(int (* fn)(devinfo_rman *rman, void *arg), void *arg);
-    int devinfo_foreach_rman_resource(devinfo_rman *rman, int (* fn)(devinfo_res *res, void *arg), void *arg);
-    devinfo_dev *devinfo_handle_to_device(devinfo_handle_t handle);
+    int devinfo_init()
+    int devinfo_free()
+    int devinfo_foreach_rman(int (* fn)(devinfo_rman *rman, void *arg), void *arg)
+    int devinfo_foreach_rman_resource(devinfo_rman *rman, int (* fn)(devinfo_res *res, void *arg), void *arg)
+    devinfo_dev *devinfo_handle_to_device(devinfo_handle_t handle)
     devinfo_res *devinfo_handle_to_resource(devinfo_handle_t handle)
-    devinfo_rman *devinfo_handle_to_rman(devinfo_handle_t handle);
+    devinfo_rman *devinfo_handle_to_rman(devinfo_handle_t handle)
 
 
 cdef extern from "libutil.h":
     int login_tty(int fd);
     # expose pidfile_* functions?
+
+
+cdef extern from "kvm.h":
+    ctypedef struct kvm_t:
+        pass
+
+    cdef struct kvm_swap:
+        char ksw_devname[32]
+        int ksw_used
+        int ksw_total
+        int ksw_flags
+
+    int	kvm_dpcpu_setcpu(kvm_t *, unsigned int)
+    char **kvm_getargv(kvm_t *, const kinfo_proc *, int)
+    int	kvm_getcptime(kvm_t *, long *)
+    char **kvm_getenvv(kvm_t *, const kinfo_proc *, int)
+    char *kvm_geterr(kvm_t *)
+    char *kvm_getfiles(kvm_t *, int, int, int *)
+    int	kvm_getloadavg(kvm_t *, double [], int)
+    int	kvm_getmaxcpu(kvm_t *)
+    void *kvm_getpcpu(kvm_t *, int)
+    kinfo_proc *kvm_getprocs(kvm_t *, int, int, int *)
+    int	kvm_getswapinfo(kvm_t *, kvm_swap *, int, int)
+    kvm_t *kvm_open(const char *, const char *, const char *, int, const char *)
+    kvm_t *kvm_openfiles(const char *, const char *, const char *, int, char *)
+    ssize_t	kvm_read(kvm_t *, unsigned long, void *, size_t)
+    ssize_t	kvm_uread(kvm_t *, const kinfo_proc *, unsigned long, char *, size_t)
+    ssize_t	kvm_write(kvm_t *, unsigned long, const void *, size_t)
+    int kvm_close(kvm_t *);
 
 
 cdef extern from "net/if.h":

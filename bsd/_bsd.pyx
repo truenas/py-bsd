@@ -535,6 +535,28 @@ cdef class Process(object):
 
             defs.procstat_close(ps)
 
+cdef class SwapDevice(object):
+    cdef defs.kvm_swap swap
+
+    def __repr__(self):
+        return str(self)
+
+    def __str__(self):
+        return "<bsd.SwapDevice '{0}'>".format(self.devname)
+
+    property devname:
+        def __get__(self):
+            return self.swap.ksw_devname
+
+    property used:
+        def __get__(self):
+            return self.swap.ksw_used
+
+    property total:
+        def __get__(self):
+            return self.swap.ksw_total
+
+
 
 def getmntinfo():
     cdef MountPoint mnt
@@ -646,6 +668,28 @@ def getprocs(predicate, arg=0):
 
     defs.procstat_freeprocs(ps, ret)
     defs.procstat_close(ps)
+
+
+def getswapinfo():
+    cdef SwapDevice swapdev
+    cdef char errstr[128]
+    cdef defs.kvm_swap swap[1024]
+    cdef defs.kvm_t *kd
+
+    kd = defs.kvm_open(NULL, NULL, NULL, 0, "py-bsd")
+    if kd == NULL:
+        raise OSError(errno, os.strerror(errno))
+
+    ret = defs.kvm_getswapinfo(kd, swap, 1024, 0)
+    if ret < 0:
+        raise OSError(errno, os.strerror(errno))
+
+    for i in range(0, ret):
+        swapdev = SwapDevice.__new__(SwapDevice)
+        memcpy(&swapdev.swap, &swap[i], sizeof(defs.kvm_swap))
+        yield swapdev
+
+    defs.kvm_close(kd)
 
 
 def clock_gettime(clock):
