@@ -578,7 +578,7 @@ def statfs(path):
 
     statfs = <defs.statfs*>malloc(cython.sizeof(defs.statfs))
 
-    if defs.c_statfs(path, statfs) != 0:
+    if defs.c_statfs(path.encode('utf-8'), statfs) != 0:
         raise OSError(errno, os.strerror(errno))
 
     mnt = MountPoint.__new__(MountPoint)
