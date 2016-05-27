@@ -803,3 +803,82 @@ cdef extern from "net/bpf.h":
         bpf_insn *bf_insns
 
     int BPF_WORDALIGN(int x)
+
+
+cdef extern from "sys/event.h":
+    enum:
+        EVFILT_READ
+        EVFILT_WRITE
+        EVFILT_AIO
+        EVFILT_VNODE
+        EVFILT_PROC
+        EVFILT_SIGNAL
+        EVFILT_TIMER
+        EVFILT_PROCDESC
+        EVFILT_FS
+        EVFILT_LIO
+        EVFILT_USER
+        EVFILT_SENDFILE
+
+    enum:
+        EV_ADD
+        EV_DELETE
+        EV_ENABLE
+        EV_DISABLE
+        EV_FORCEONESHOT
+        EV_ONESHOT
+        EV_CLEAR
+        EV_RECEIPT
+        EV_DISPATCH
+        EV_SYSFLAGS
+        EV_DROP
+        EV_FLAG1
+        EV_FLAG2
+        EV_EOF
+        EV_ERROR
+
+    enum:
+        NOTE_FFNOP
+        NOTE_FFAND
+        NOTE_FFOR
+        NOTE_FFCOPY
+        NOTE_FFCTRLMASK
+        NOTE_FFLAGSMASK
+        NOTE_TRIGGER
+        NOTE_LOWAT
+        NOTE_FILE_POLL
+        NOTE_DELETE
+        NOTE_WRITE
+        NOTE_EXTEND
+        NOTE_ATTRIB
+        NOTE_LINK
+        NOTE_RENAME
+        NOTE_REVOKE
+        NOTE_OPEN
+        NOTE_CLOSE
+        NOTE_CLOSE_WRITE
+        NOTE_READ
+        NOTE_EXIT
+        NOTE_FORK
+        NOTE_EXEC
+        NOTE_PCTRLMASK
+        NOTE_PDATAMASK
+        NOTE_TRACK
+        NOTE_TRACKERR
+        NOTE_CHILD
+        NOTE_SECONDS	
+        NOTE_MSECONDS	
+        NOTE_USECONDS	
+        NOTE_NSECONDS	
+
+    cdef struct kevent_s "kevent":
+        uintptr_t ident
+        short filter
+        u_short flags
+        u_int fflags
+        intptr_t data
+        void *udata
+
+    int kqueue()
+    int kevent(int kq, const kevent_s *changelist, int nchanges, kevent_s *eventlist, int nevents, timespec *timeout)
+    void EV_SET(kevent_s *kev, uintptr_t ident, short filter, u_short flags, u_int fflags, intptr_t data, void *udata)
