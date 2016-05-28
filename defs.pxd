@@ -805,7 +805,7 @@ cdef extern from "net/bpf.h":
     int BPF_WORDALIGN(int x)
 
 
-cdef extern from "sys/event.h":
+cdef extern from "sys/event.h" nogil:
     enum:
         EVFILT_READ
         EVFILT_WRITE

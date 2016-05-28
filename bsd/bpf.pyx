@@ -107,12 +107,15 @@ cdef class Jump(Statement):
 cdef class BPF(object):
     cdef object fd
     cdef char *buffer
+    cdef int kq
 
     def __init__(self):
         self.fd = None
+        self.kq = defs.kqueue()
 
     def __dealloc__(self):
         free(self.buffer)
+        os.close(self.kq)
 
     def __enter__(self):
         self.open()
@@ -168,6 +171,16 @@ cdef class BPF(object):
         self.__alloc_buffer()
 
     def close(self):
+        cdef defs.kevent_s kev
+
+        defs.EV_SET(
+            &kev, 0xdead, defs.EVFILT_USER, defs.EV_ENABLE,
+            defs.NOTE_TRIGGER | defs.NOTE_FFCOPY | 1, 0, NULL
+        )
+
+        if defs.kevent(self.kq, &kev, 1, NULL, 0, NULL) != 0:
+            raise OSError(errno, os.strerror(errno))
+
         self.fd.close()
 
     def apply_filter(self, instructions):
@@ -185,8 +198,11 @@ cdef class BPF(object):
             raise OSError(errno, os.strerror(errno))
 
     def read(self):
+        cdef defs.kevent_s kev[2]
+        cdef defs.kevent_s *ev
         cdef char *ptr
         cdef defs.bpf_xhdr *hdr
+        cdef int kq
         cdef int fd
         cdef int ret
         cdef int bufsize
@@ -194,18 +210,36 @@ cdef class BPF(object):
         fd = self.fd.fileno()
         bufsize = self.buffer_size
 
+        defs.EV_SET(&kev[0], fd, defs.EVFILT_READ, defs.EV_ADD | defs.EV_ENABLE, 0, 0, NULL)
+        defs.EV_SET(&kev[1], 0xdead, defs.EVFILT_USER, defs.EV_ADD | defs.EV_ENABLE, defs.NOTE_FFCOPY, 0, NULL)
+
+        if defs.kevent(self.kq, kev, 2, NULL, 0, NULL) != 0:
+            raise OSError(errno, os.strerror(errno))
+
         while True:
             ptr = self.buffer
             with nogil:
-                ret = read(fd, self.buffer, bufsize)
-                if ret < 1:
-                    break
+                ret = defs.kevent(self.kq, NULL, 0, kev, 2, NULL)
 
-            while <uintptr_t>ptr < (<uintptr_t>self.buffer + ret):
-                hdr = <defs.bpf_xhdr *>ptr
-                yield <bytes>ptr[hdr.bh_hdrlen:hdr.bh_hdrlen+hdr.bh_caplen]
+            if ret < 0:
+                raise OSError(errno, os.strerror(errno))
 
-                ptr += defs.BPF_WORDALIGN(hdr.bh_hdrlen+hdr.bh_caplen)
+            for i in range(0, ret):
+                ev = &kev[i]
+
+                if ev.ident == fd:
+                    ret = read(fd, self.buffer, bufsize)
+                    if ret < 1:
+                        return
+
+                    while <uintptr_t>ptr < (<uintptr_t>self.buffer + ret):
+                        hdr = <defs.bpf_xhdr *>ptr
+                        yield <bytes>ptr[hdr.bh_hdrlen:hdr.bh_hdrlen+hdr.bh_caplen]
+
+                        ptr += defs.BPF_WORDALIGN(hdr.bh_hdrlen+hdr.bh_caplen)
+
+                if ev.ident == 0xdead:
+                    return
 
     def write(self, data):
         os.write(self.fd.fileno(), data)
