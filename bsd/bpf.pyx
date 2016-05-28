@@ -228,7 +228,9 @@ cdef class BPF(object):
                 ev = &kev[i]
 
                 if ev.ident == fd:
-                    ret = read(fd, self.buffer, bufsize)
+                    with nogil:
+                        ret = read(fd, self.buffer, bufsize)
+
                     if ret < 1:
                         return
 
