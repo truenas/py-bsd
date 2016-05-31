@@ -231,7 +231,10 @@ cdef class BPF(object):
                     with nogil:
                         ret = read(fd, self.buffer, bufsize)
 
-                    if ret < 1:
+                    if ret < 0:
+                        raise OSError(errno, os.strerror(errno))
+
+                    if ret == 0:
                         return
 
                     while <uintptr_t>ptr < (<uintptr_t>self.buffer + ret):
