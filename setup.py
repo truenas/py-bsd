@@ -24,6 +24,8 @@
 # SUCH DAMAGE.
 #
 
+import Cython.Compiler.Options
+Cython.Compiler.Options.annotate = True
 from distutils.core import setup
 from Cython.Build import cythonize
 from Cython.Distutils.extension import Extension
@@ -47,6 +49,7 @@ setup(
     version='1.0',
     packages=['bsd'],
     package_dir={'bsd' : 'bsd'},
+    package_data={'bsd': ['*.html', '*.c']},
     cmdclass={'build_ext': build_ext},
     ext_modules=extensions,
 )
