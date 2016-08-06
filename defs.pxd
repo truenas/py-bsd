@@ -411,7 +411,8 @@ cdef extern from "libprocstat.h" nogil:
     char **procstat_getargv(procstat *procstat, kinfo_proc *p, size_t nchr)
     char **procstat_getenvv(procstat *procstat, kinfo_proc *p, size_t nchr)
     int	procstat_getpathname(procstat *procstat, kinfo_proc *kp, char *pathname, size_t maxlen)
-    procstat *procstat_open_sysctl();
+    procstat *procstat_open_sysctl()
+    procstat *procstat_open_core(const char *filename)
 
 
 cdef extern from "sys/sysctl.h":

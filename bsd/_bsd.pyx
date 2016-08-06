@@ -370,12 +370,14 @@ cdef class OpenSocket(OpenFile):
 
 cdef class Process(object):
     cdef defs.kinfo_proc* proc
+    cdef defs.procstat* ps
     cdef bint free
 
     def __cinit__(self):
         self.free = False
 
     def __dealloc__(self):
+        defs.procstat_close(self.ps)
         if self.free:
             free(self.proc)
 
@@ -427,28 +429,17 @@ cdef class Process(object):
             cdef defs.procstat *ps
             cdef char buf[defs._POSIX2_LINE_MAX]
 
-            ps = defs.procstat_open_sysctl()
-            if ps == NULL:
-                raise OSError(errno, os.strerror(errno))
-
-            if defs.procstat_getpathname(ps, self.proc, buf, sizeof(buf) - 1) < 0:
-                defs.procstat_close(ps)
+            if defs.procstat_getpathname(self.ps, self.proc, buf, sizeof(buf) - 1) < 0:
                 return None
 
-            defs.procstat_close(ps)
             return buf
 
     property argv:
         def __get__(self):
-            cdef defs.procstat *ps
             cdef char **c_argv
             cdef char *ptr
 
-            ps = defs.procstat_open_sysctl()
-            if ps == NULL:
-                raise OSError(errno, os.strerror(errno))
-
-            c_argv = defs.procstat_getargv(ps, self.proc, 0)
+            c_argv = defs.procstat_getargv(self.ps, self.proc, 0)
             if c_argv == NULL:
                 raise OSError(errno, os.strerror(errno))
 
@@ -461,20 +452,14 @@ cdef class Process(object):
                 yield ptr
                 i += 1
 
-            defs.procstat_freeargv(ps)
-            defs.procstat_close(ps)
+            defs.procstat_freeargv(self.ps)
 
     property env:
         def __get__(self):
-            cdef defs.procstat* ps
             cdef char **c_env
             cdef char *ptr
 
-            ps = defs.procstat_open_sysctl()
-            if ps == NULL:
-                raise OSError(errno, os.strerror(errno))
-
-            c_env = defs.procstat_getenvv(ps, self.proc, 0)
+            c_env = defs.procstat_getenvv(self.ps, self.proc, 0)
             if c_env == NULL:
                 raise OSError(errno, os.strerror(errno))
 
@@ -487,8 +472,7 @@ cdef class Process(object):
                 yield ptr
                 i += 1
 
-            defs.procstat_freeenvv(ps)
-            defs.procstat_close(ps)
+            defs.procstat_freeenvv(self.ps)
 
     property started_at:
         def __get__(self):
@@ -507,15 +491,10 @@ cdef class Process(object):
     property files:
         def __get__(self):
             cdef OpenFile file
-            cdef defs.procstat* ps
             cdef defs.filestat_list* fs_list
             cdef defs.filestat* fs
 
-            ps = defs.procstat_open_sysctl()
-            if ps == NULL:
-                raise OSError(errno, os.strerror(errno))
-
-            fs_list = defs.procstat_getfiles(ps, self.proc, 0)
+            fs_list = defs.procstat_getfiles(self.ps, self.proc, 0)
             fs = fs_list.stqh_first
 
             type_mapping = {
@@ -526,14 +505,12 @@ cdef class Process(object):
             while fs != NULL:
                 cls = type_mapping.get(fs.fs_type, OpenFile)
                 file = cls.__new__(cls)
-                file.ps = ps
+                file.ps = self.ps
                 file.fs = fs
                 file.init()
                 yield file
 
                 fs = fs.next.stqe_next
-
-            defs.procstat_close(ps)
 
 cdef class SwapDevice(object):
     cdef defs.kvm_swap swap
@@ -629,6 +606,32 @@ def kinfo_getproc(pid):
 
     ret = Process.__new__(Process)
     ret.proc = proc
+    ret.ps = defs.procstat_open_sysctl()
+    if ret.ps == NULL:
+        raise OSError(errno, os.strerror(errno))
+
+    return ret
+
+
+def opencore(filename):
+    cdef Process ret
+    cdef defs.kinfo_proc *proc
+    cdef defs.procstat *ps = NULL
+    cdef unsigned int count
+
+    ps = defs.procstat_open_core(filename.encode('utf-8'))
+    if ps == NULL:
+        raise OSError(errno, os.strerror(errno))
+
+    with nogil:
+        proc = defs.procstat_getprocs(ps, defs.KERN_PROC_PROC, 0, &count)
+
+    if count < 1:
+        raise RuntimeError('Process information not found in the core file')
+
+    ret = Process.__new__(Process)
+    ret.proc = proc
+    ret.ps = ps
     return ret
 
 
@@ -664,6 +667,10 @@ def getprocs(predicate, arg=0):
         proc = Process.__new__(Process)
         proc.proc = tmp
         proc.free = True
+        proc.ps = defs.procstat_open_sysctl()
+        if proc.ps == NULL:
+            raise OSError(errno, os.strerror(errno))
+
         yield proc
 
     defs.procstat_freeprocs(ps, ret)
