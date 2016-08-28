@@ -222,8 +222,8 @@ def sysctl(name, old=True, new=None):
             elif sysctl_type in CTLTYPE_LONGS:
                 return (<long*>oldp)[0]
             elif sysctl_type == CTLTYPE_STRING:
-                old_arr = <char*>oldp
-                return old_arr
+                old_arr = (<char*>oldp)[:oldlen]
+                return old_arr.decode('ascii')
             else:
                 return [(<char*>oldp)[i] for i in range(oldlen)]
     finally:
