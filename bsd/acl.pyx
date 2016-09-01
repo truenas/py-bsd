@@ -210,14 +210,14 @@ cdef class ACL(object):
                 return []
 
             while True:
-                err = defs.acl_get_entry(self.acl, defs.ACL_NEXT_ENTRY, &entry)
-                if err != 1:
-                    break
-
                 ret = ACLEntry.__new__(ACLEntry)
                 ret.parent = self
                 ret.entry = entry
                 result.append(ret)
+
+                err = defs.acl_get_entry(self.acl, defs.ACL_NEXT_ENTRY, &entry)
+                if err != 1:
+                    break
 
             return result
 
