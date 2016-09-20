@@ -113,7 +113,7 @@ def sysctl(name, old=True, new=None):
         size_t buflen
         size_t newlen
         size_t oldlen
-        int new_i
+        unsigned int new_i
         char c
 
     buf = NULL
