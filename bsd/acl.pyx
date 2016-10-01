@@ -152,9 +152,9 @@ cdef class ACL(object):
 
         if isinstance(file, str):
             if self._link:
-                rv = defs.acl_set_link_np(file.encode('utf8'), self.type, self.acl)
+                rv = defs.acl_set_link_np(file.encode('utf-8', 'surrogateescape'), self.type, self.acl)
             else:
-                rv = defs.acl_set_file(file.encode('utf8'), self.type, self.acl)
+                rv = defs.acl_set_file(file.encode('utf-8', 'surrogateescape'), self.type, self.acl)
         elif type(file) is type(ref_file):
             rv = defs.acl_set_fd_np(file.fileno(), self.acl, self.type)
         elif type(file) is int:
