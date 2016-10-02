@@ -494,14 +494,17 @@ cdef class Process(object):
             cdef defs.filestat_list* fs_list
             cdef defs.filestat* fs
 
-            fs_list = defs.procstat_getfiles(self.ps, self.proc, 0)
-            fs = fs_list.stqh_first
-
             type_mapping = {
                 defs.PS_FST_TYPE_VNODE: OpenVnode,
                 defs.PS_FST_TYPE_SOCKET: OpenSocket
             }
 
+
+            fs_list = defs.procstat_getfiles(self.ps, self.proc, 0)
+            if fs_list == <defs.filestat_list *>NULL:
+                raise OSError(errno, os.strerror(errno))
+
+            fs = fs_list.stqh_first
             while fs != NULL:
                 cls = type_mapping.get(fs.fs_type, OpenFile)
                 file = cls.__new__(cls)
