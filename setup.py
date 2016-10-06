@@ -41,6 +41,7 @@ extensions = [
     Extension("bsd.extattr", ["bsd/extattr.pyx"], extra_compile_args=["-g", "-O0"], cython_compile_time_env={'PY2': six.PY2}),
     Extension("bsd.devinfo", ["bsd/devinfo.pyx"], extra_compile_args=["-g", "-O0"], extra_link_args=["-ldevinfo"]),
     Extension("bsd.bpf", ["bsd/bpf.pyx"], extra_compile_args=["-g", "-O0"]),
+    Extension("bsd.nis", ["bsd/nis.pyx", "bsd/yp_client.c"], extra_compile_args=["-g", "-O0"], extra_link_args=["-lypclnt"]),
 ]
 
 
