@@ -3,8 +3,16 @@ import os
 import sys
 import cython
 
+"""
+This offers a series of python bindings for NIS/YP.
+The NIS() object allows you to connect with a specific
+domain name and/or server; if either is None, it will attempt
+to use the defaults.  Note that if server is None, then
+ypbind needs to be running on localhost.
+"""
+
 from libc.stdlib cimport free
-from libc.string cimport strerror
+from libc.string cimport strerror, strlen
 from libc.errno cimport *
 cimport defs
 
@@ -26,7 +34,7 @@ cdef extern from "pwd.h":
         time_t	pw_expire
         int	pw_fields
         
-cdef extern from "yp_client.h":
+cdef extern from "yp_client.h" nogil:
     cdef extern void *yp_client_init(const char *domain, const char *server)
     cdef extern void yp_client_close(void *context)
     cdef extern int yp_client_match(void *context,
@@ -94,7 +102,10 @@ cdef class NIS(object):
     cdef const char *domain
     cdef const char *server
     def __init__(self, domain=None, server=None):
-        self.ctx = yp_client_init(domain, server)
+        cdef const char *c_domain = domain
+        cdef const char *c_server = server
+        with nogil:
+            self.ctx = yp_client_init(c_domain, c_server)
         if self.ctx == NULL:
             raise OSError(ENOMEM, strerror(ENOMEM))
         self.domain = domain
@@ -104,8 +115,12 @@ cdef class NIS(object):
     def _getpw(self, mapname, keyvalue):
         cdef char *pw_ent = NULL
         cdef size_t pw_ent_len
-        
-        rv = yp_client_match(self.ctx, mapname, keyvalue, len(keyvalue), &pw_ent, &pw_ent_len)
+        cdef const char *c_mapname = mapname
+        cdef const char *c_keyvalue = keyvalue
+        cdef int rv
+
+        with nogil:
+            rv = yp_client_match(self.ctx, c_mapname, c_keyvalue, strlen(c_keyvalue), &pw_ent, &pw_ent_len)
         if rv != 0:
             raise OSError(rv, strerror(rv))
         
@@ -126,11 +141,14 @@ cdef class NIS(object):
         cdef const char *next_key = NULL
         cdef const char *out_value = NULL
         cdef size_t first_keylen, next_keylen, out_len
-
+        cdef const char *c_mapname = mapname
+        cdef int rv
+        
         try:
-            rv = yp_client_first(self.ctx, mapname,
-                                 &next_key, &next_keylen,
-                                 &out_value, &out_len)
+            with nogil:
+                rv = yp_client_first(self.ctx, c_mapname,
+                                     &next_key, &next_keylen,
+                                     &out_value, &out_len)
             while rv == 0:
                 retval = cracker(out_value.decode('utf-8'))
                 free(<void*>out_value)
@@ -140,10 +158,11 @@ cdef class NIS(object):
                 next_key = NULL
                 next_keylen = 0
                 yield retval
-                rv = yp_client_next(self.ctx, mapname,
-                                    first_key, first_keylen,
-                                    &next_key, &next_keylen,
-                                    &out_value, &out_len)
+                with nogil:
+                    rv = yp_client_next(self.ctx, c_mapname,
+                                        first_key, first_keylen,
+                                        &next_key, &next_keylen,
+                                        &out_value, &out_len)
         finally:
             if first_key:
                 free(<void*>first_key)
@@ -177,8 +196,13 @@ cdef class NIS(object):
     def _getgr(self, mapname, keyvalue):
         cdef char *gr_ent = NULL
         cdef size_t gr_ent_len
+        cdef int rv
+        cdef const char *c_mapname = mapname
+        cdef const char *c_keyvalue = keyvalue
         
-        rv = yp_client_match(self.ctx, mapname, keyvalue, len(keyvalue), &gr_ent, &gr_ent_len)
+        with nogil:
+            rv = yp_client_match(self.ctx, c_mapname, c_keyvalue, strlen(c_keyvalue), &gr_ent, &gr_ent_len)
+
         if rv != 0:
             raise OSError(rv, strerror(rv))
         
@@ -201,6 +225,7 @@ cdef class NIS(object):
 
     def update_pwent(self, old_password, new_pwent):
         cdef passwd pwent_copy
+        cdef const char *c_oldpassword = old_password
         pwent_copy.pw_name = new_pwent.pw_name
         pwent_copy.pw_passwd = new_pwent.pw_passwd
         pwent_copy.pw_uid = new_pwent.pw_uid
@@ -225,5 +250,7 @@ cdef class NIS(object):
         except:
             pwent_copy.pw_exire = 0
 
-        rv = yp_client_update_pwent(self.ctx, old_password, &pwent_copy)
+        with nogil:
+            rv = yp_client_update_pwent(self.ctx, c_oldpassword, &pwent_copy)
+        
         return
