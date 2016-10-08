@@ -140,7 +140,7 @@ def sysctl(name, old=True, new=None):
 
         # Administrative functions for determining the type add an additional
         # 2 elements to the OID.
-        namet = <int*>malloc(sizeof(int) * namelen + 2)
+        namet = <int*>malloc(sizeof(int) * (namelen + 2))
         if not namet:
             raise MemoryError()
 
