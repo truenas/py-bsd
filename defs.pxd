@@ -415,7 +415,7 @@ cdef extern from "libprocstat.h" nogil:
     procstat *procstat_open_core(const char *filename)
 
 
-cdef extern from "sys/sysctl.h":
+cdef extern from "sys/sysctl.h" nogil:
     enum:
         KERN_PROC_ALL
         KERN_PROC_PID

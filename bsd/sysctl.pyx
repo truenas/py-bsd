@@ -110,11 +110,13 @@ def sysctl(name, old=True, new=None):
         void *newp
         void *oldp
         void *tmpp
+        size_t namelen
         size_t buflen
         size_t newlen
         size_t oldlen
         unsigned long new_i
         char c
+        int ret
 
     buf = NULL
     buflen = BUFSIZ
@@ -122,6 +124,7 @@ def sysctl(name, old=True, new=None):
     namet = NULL
     newp_s = NULL
     oldp = NULL
+    namelen = len(name)
 
     if not name:
         raise ValueError("'name' must be a non-zero length iterable object")
@@ -131,13 +134,13 @@ def sysctl(name, old=True, new=None):
         if not buf:
             raise MemoryError()
 
-        namep = <int*>malloc(sizeof(int) * (len(name)))
+        namep = <int*>malloc(sizeof(int) * namelen)
         if not namep:
             raise MemoryError()
 
         # Administrative functions for determining the type add an additional
         # 2 elements to the OID.
-        namet = <int*>malloc(sizeof(int) * (len(name) + 2))
+        namet = <int*>malloc(sizeof(int) * namelen + 2)
         if not namet:
             raise MemoryError()
 
@@ -148,7 +151,9 @@ def sysctl(name, old=True, new=None):
             namep[i] = n
             namet[i + 2] = n
 
-        ret = defs.sysctl(namet, len(name)+2, buf, &buflen, NULL, 0)
+        with nogil:
+            ret = defs.sysctl(namet, namelen + 2, buf, &buflen, NULL, 0)
+
         if ret == -1:
             raise OSError(errno, os.strerror(errno))
         sysctl_type = (<int*>buf)[0] & CTLTYPE
@@ -185,19 +190,27 @@ def sysctl(name, old=True, new=None):
         if old:
             # We loop on this until we get all the data.
             # Or until we've tried getting 4mbytes.
-            ret = defs.sysctl(namep, len(name), NULL, &oldlen, NULL, 0)
+            with nogil:
+                ret = defs.sysctl(namep, namelen, NULL, &oldlen, NULL, 0)
+
             if ret == -1:
                 raise OSError(errno, os.strerror(errno))
+
             while True:
                 oldp = malloc(oldlen)
                 if not oldp:
                     raise MemoryError()
-                ret = defs.sysctl(namep, len(name), oldp, &oldlen, NULL, 0)
+
+                with nogil:
+                    ret = defs.sysctl(namep, namelen, oldp, &oldlen, NULL, 0)
+
                 if ret == 0:
                     break
+
                 if errno != ENOMEM or oldlen > (4 * 1024 * 1024):
                     free(oldp)
                     raise OSError(errno, os.strerror(errno))
+
                 free(oldp)
                 oldlen = oldlen * 2
             # This truncates the buffer to oldlen
@@ -212,7 +225,9 @@ def sysctl(name, old=True, new=None):
             oldlen = 0
 
         if newp:
-            ret = defs.sysctl(namep, len(name), NULL, NULL, newp, newlen)
+            with nogil:
+                ret = defs.sysctl(namep, namelen, NULL, NULL, newp, newlen)
+
             if ret == -1:
                 raise OSError(errno, os.strerror(errno))
 
@@ -261,6 +276,7 @@ def sysctlbyname(name, old=True, new=None):
         char *namep
         int *mibp
         size_t _size
+        int ret
 
     if PY_MAJOR_VERSION == 3 and isinstance(name, str):
         name = name.encode('ascii')
@@ -275,7 +291,9 @@ def sysctlbyname(name, old=True, new=None):
         if not mibp:
             raise MemoryError()
 
-        ret = defs.sysctlnametomib(namep, mibp, &_size)
+        with nogil:
+            ret = defs.sysctlnametomib(namep, mibp, &_size)
+
         if ret == -1:
             raise OSError(errno, os.strerror(errno))
 
