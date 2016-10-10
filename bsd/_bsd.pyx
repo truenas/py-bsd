@@ -561,6 +561,7 @@ def statfs(path):
     cdef const char *c_path
     cdef int ret
 
+    path = path.encode('utf-8')
     c_path = path
     statfs = <defs.statfs*>malloc(cython.sizeof(defs.statfs))
 
@@ -592,8 +593,8 @@ def nmount(**kwargs):
     iov = <defs.iovec*>malloc(cython.sizeof(defs.iovec) * len(kwargs) * 2)
 
     for k, v in kwargs.items():
-        args.append(k.encode('ascii', 'ignore'))
-        args.append(v.encode('ascii', 'ignore'))
+        args.append(k.encode('utf-8', 'ignore'))
+        args.append(v.encode('utf-8', 'ignore'))
 
     for i in range(0, len(args)):
         iov[i].iov_base = <void*>(<char*>args[i])
