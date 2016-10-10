@@ -3,6 +3,7 @@ from __future__ import print_function
 import os
 import sys
 import cython
+import pwd
 
 """
 This offers a series of python bindings for NIS/YP.
@@ -82,20 +83,10 @@ def _make_gr(entry):
                gr_mem=fields[3].split(','))
 
 cdef _make_pw(entry):
-    cdef passwd retval
     fields = entry.split(':')
-    retval.pw_name = fields[0]
-    retval.pw_passwd = fields[1]
-    retval.pw_uid = int(fields[2])
-    retval.pw_gid = int(fields[3])
-    retval.pw_gecos = fields[4]
-    retval.pw_dir = fields[5]
-    retval.pw_shell = fields[6]
-    # Now all the ones not defined by that
-    retval.pw_change = 0
-    retval.pw_class = ""
-    retval.pw_expire = 0
-    retval.pw_fields = 1
+    retval = pwd.struct_passwd((fields[0], fields[1],
+                                int(fields[2]), int(fields[3]),
+                                fields[4], fields[5], fields[6]))
     return retval
 
 cdef class NIS(object):
@@ -103,8 +94,10 @@ cdef class NIS(object):
     cdef const char *domain
     cdef const char *server
     def __init__(self, domain=None, server=None):
-        cdef const char *c_domain = domain or <const char*>NULL
-        cdef const char *c_server = server or <const char *>NULL
+        stupid_temp_domain = domain.encode('utf-8') if domain else None
+        stupid_temp_server = server.encode('utf-8') if server else None
+        cdef const char *c_domain = stupid_temp_domain or <const char*>NULL
+        cdef const char *c_server = stupid_temp_server or <const char *>NULL
         with nogil:
             self.ctx = yp_client_init(c_domain, c_server)
         if self.ctx == NULL:
@@ -125,7 +118,7 @@ cdef class NIS(object):
         if rv != 0:
             raise OSError(rv, strerror(rv))
         
-        retval = _make_pwent(pw_ent.decode('utf-8'))
+        retval = _make_pwent(pw_ent.encode('utf-8'))
         free(pw_ent)
         if retval:
             return retval
@@ -142,7 +135,8 @@ cdef class NIS(object):
         cdef const char *next_key = NULL
         cdef const char *out_value = NULL
         cdef size_t first_keylen, next_keylen, out_len
-        cdef const char *c_mapname = mapname
+        stupid_temp_mapname = mapname.encode('utf-8')
+        cdef const char *c_mapname = stupid_temp_mapname
         cdef int rv
         
         try:
@@ -151,7 +145,9 @@ cdef class NIS(object):
                                      &next_key, &next_keylen,
                                      &out_value, &out_len)
             while rv == 0:
-                retval = cracker(out_value.decode('utf-8'))
+#                stupid_temp_out = <unicode>out_value
+#                retval = cracker(stupid_temp_out.encode('utf-8'))
+                retval = cracker(out_value)
                 free(<void*>out_value)
                 free(<void*>first_key)
                 first_key = next_key
@@ -207,7 +203,7 @@ cdef class NIS(object):
         if rv != 0:
             raise OSError(rv, strerror(rv))
         
-        retval = _make_gr(gr_ent.decode('utf-8'))
+        retval = _make_gr(gr_ent.encode('utf-8'))
         free(gr_ent)
         if retval:
             return retval
@@ -226,7 +222,8 @@ cdef class NIS(object):
 
     def update_pwent(self, old_password, new_pwent):
         cdef passwd pwent_copy
-        cdef const char *c_oldpassword = old_password
+        stupid_temp_old_password = old_password.encode('utf-8')
+        cdef const char *c_oldpassword = stupid_temp_old_password
         pwent_copy.pw_name = new_pwent.pw_name
         pwent_copy.pw_passwd = new_pwent.pw_passwd
         pwent_copy.pw_uid = new_pwent.pw_uid
