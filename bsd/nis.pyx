@@ -106,13 +106,9 @@ cdef class NIS(object):
         self.server = c_server
         return
 
-    def _getpw(self, mapname, keyvalue):
+    def _getpw(self, const char *c_mapname, const char *c_keyvalue):
         cdef char *pw_ent = NULL
         cdef size_t pw_ent_len
-        stupid_temp_mapname = mapname.encode('utf-8')
-        stupid_temp_keyvalue = keyvalue.encode('utf-8')
-        cdef const char *c_mapname = stupid_temp_mapname
-        cdef const char *c_keyvalue = stupid_temp_keyvalue
         cdef int rv
 
         with nogil:
@@ -124,7 +120,7 @@ cdef class NIS(object):
         free(pw_ent)
         if retval:
             return retval
-        raise OSError(ENOENT, "Cannot find key {} in map {}".format(keyvalue, mapname))
+        raise OSError(ENOENT, "Cannot find key {} in map {}".format(c_keyvalue, c_mapname))
         
     def _get_entries(self, mapname, cracker):
         """
@@ -180,7 +176,7 @@ cdef class NIS(object):
         else:
             mapname = "passwd.byname"
             
-        return self._getpw(mapname, name)
+        return self._getpw(mapname.encode('utf-8'), name.encode('utf-8'))
 
     def getpwuid(self, uid):
         if os.geteuid() == 0:
@@ -188,16 +184,12 @@ cdef class NIS(object):
         else:
             mapname = "passwd.byuid"
             
-        return self._getpw(mapname, str(uid))
+        return self._getpw(mapname.encode('utf-8'), str(uid).encode('utf-8'))
 
-    def _getgr(self, mapname, keyvalue):
+    def _getgr(self, const char *c_mapname, const char *c_keyvalue):
         cdef char *gr_ent = NULL
         cdef size_t gr_ent_len
         cdef int rv
-        stupid_temp_mapname = mapname.encode('utf-8')
-        stupid_temp_keyvalue = keyvalue.encode('utf-8')
-        cdef const char *c_mapname = stupid_temp_mapname
-        cdef const char *c_keyvalue = stupid_temp_keyvalue
         
         with nogil:
             rv = yp_client_match(self.ctx, c_mapname, c_keyvalue, strlen(c_keyvalue), &gr_ent, &gr_ent_len)
@@ -209,7 +201,7 @@ cdef class NIS(object):
         free(gr_ent)
         if retval:
             return retval
-        raise OSError(ENOENT, "Cannot find key {} in map {}".format(keyvalue, mapname))
+        raise OSError(ENOENT, "Cannot find key {} in map {}".format(c_keyvalue, c_mapname))
 
     def getgrnam(self, grpname):
         if grpname is None:
