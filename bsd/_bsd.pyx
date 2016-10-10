@@ -541,8 +541,11 @@ cdef class SwapDevice(object):
 def getmntinfo():
     cdef MountPoint mnt
     cdef defs.statfs* mntbuf
+    cdef int count
 
-    count = defs.getmntinfo(&mntbuf, defs.MNT_WAIT)
+    with nogil:
+        count = defs.getmntinfo(&mntbuf, defs.MNT_WAIT)
+
     if count == 0:
         raise OSError(errno, os.strerror(errno))
 
@@ -555,10 +558,16 @@ def getmntinfo():
 def statfs(path):
     cdef MountPoint mnt
     cdef defs.statfs* statfs
+    cdef const char *c_path
+    cdef int ret
 
+    c_path = path
     statfs = <defs.statfs*>malloc(cython.sizeof(defs.statfs))
 
-    if defs.c_statfs(path.encode('utf-8'), statfs) != 0:
+    with nogil:
+        ret = defs.c_statfs(c_path, statfs)
+
+    if ret != 0:
         raise OSError(errno, os.strerror(errno))
 
     mnt = MountPoint.__new__(MountPoint)
@@ -569,6 +578,9 @@ def statfs(path):
 
 def nmount(**kwargs):
     cdef defs.iovec* iov
+    cdef int i
+    cdef int ret
+    cdef int flags
 
     flags = kwargs.pop('flags', 0)
 
@@ -587,7 +599,10 @@ def nmount(**kwargs):
         iov[i].iov_base = <void*>(<char*>args[i])
         iov[i].iov_len = len(args[i]) + 1
 
-    if defs.nmount(iov, i + 1, flags) != 0:
+    with nogil:
+        ret = defs.nmount(iov, i + 1, flags)
+
+    if ret != 0:
         free(iov)
         raise OSError(errno, os.strerror(errno))
 
@@ -595,7 +610,14 @@ def nmount(**kwargs):
 
 
 def unmount(dir, flags=0):
-    if defs.unmount(dir, flags) != 0:
+    cdef const char *c_dir = dir
+    cdef int c_flags = flags
+    cdef int ret
+
+    with nogil:
+        ret = defs.unmount(c_dir, c_flags)
+
+    if ret != 0:
         raise OSError(errno, os.strerror(errno))
 
 
