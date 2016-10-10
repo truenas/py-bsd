@@ -1,3 +1,4 @@
+# cython: c_string_type=unicode, c_string_encoding=utf-8
 from __future__ import print_function
 import os
 import sys
@@ -102,14 +103,14 @@ cdef class NIS(object):
     cdef const char *domain
     cdef const char *server
     def __init__(self, domain=None, server=None):
-        cdef const char *c_domain = domain
-        cdef const char *c_server = server
+        cdef const char *c_domain = domain or <const char*>NULL
+        cdef const char *c_server = server or <const char *>NULL
         with nogil:
             self.ctx = yp_client_init(c_domain, c_server)
         if self.ctx == NULL:
             raise OSError(ENOMEM, strerror(ENOMEM))
-        self.domain = domain
-        self.server = server
+        self.domain = c_domain
+        self.server = c_server
         return
 
     def _getpw(self, mapname, keyvalue):
