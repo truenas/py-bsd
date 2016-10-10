@@ -109,8 +109,10 @@ cdef class NIS(object):
     def _getpw(self, mapname, keyvalue):
         cdef char *pw_ent = NULL
         cdef size_t pw_ent_len
-        cdef const char *c_mapname = mapname
-        cdef const char *c_keyvalue = keyvalue
+        stupid_temp_mapname = mapname.encode('utf-8')
+        stupid_temp_keyvalue = keyvalue.encode('utf-8')
+        cdef const char *c_mapname = stupid_temp_mapname
+        cdef const char *c_keyvalue = stupid_temp_keyvalue
         cdef int rv
 
         with nogil:
@@ -118,7 +120,7 @@ cdef class NIS(object):
         if rv != 0:
             raise OSError(rv, strerror(rv))
         
-        retval = _make_pwent(pw_ent.encode('utf-8'))
+        retval = _make_pw(pw_ent)
         free(pw_ent)
         if retval:
             return retval
@@ -145,8 +147,6 @@ cdef class NIS(object):
                                      &next_key, &next_keylen,
                                      &out_value, &out_len)
             while rv == 0:
-#                stupid_temp_out = <unicode>out_value
-#                retval = cracker(stupid_temp_out.encode('utf-8'))
                 retval = cracker(out_value)
                 free(<void*>out_value)
                 free(<void*>first_key)
@@ -194,8 +194,10 @@ cdef class NIS(object):
         cdef char *gr_ent = NULL
         cdef size_t gr_ent_len
         cdef int rv
-        cdef const char *c_mapname = mapname
-        cdef const char *c_keyvalue = keyvalue
+        stupid_temp_mapname = mapname.encode('utf-8')
+        stupid_temp_keyvalue = keyvalue.encode('utf-8')
+        cdef const char *c_mapname = stupid_temp_mapname
+        cdef const char *c_keyvalue = stupid_temp_keyvalue
         
         with nogil:
             rv = yp_client_match(self.ctx, c_mapname, c_keyvalue, strlen(c_keyvalue), &gr_ent, &gr_ent_len)
@@ -203,7 +205,7 @@ cdef class NIS(object):
         if rv != 0:
             raise OSError(rv, strerror(rv))
         
-        retval = _make_gr(gr_ent.encode('utf-8'))
+        retval = _make_gr(gr_ent)
         free(gr_ent)
         if retval:
             return retval
