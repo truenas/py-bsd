@@ -278,10 +278,13 @@ cdef class OpenVnode(OpenFile):
     cdef defs.vnstat vn
 
     cdef init(self):
-        cdef char errbuf[defs._POSIX2_LINE_MAX];
+        cdef char errbuf[defs._POSIX2_LINE_MAX]
+        cdef int ret
 
-        err = defs.procstat_get_vnode_info(self.ps, self.fs, &self.vn, errbuf)
-        if err != 0:
+        with nogil:
+            ret = defs.procstat_get_vnode_info(self.ps, self.fs, &self.vn, errbuf)
+
+        if ret != 0:
             pass
 
     def __getstate__(self):
@@ -316,10 +319,13 @@ cdef class OpenSocket(OpenFile):
     cdef defs.sockstat ss
 
     cdef init(self):
-        cdef char errbuf[defs._POSIX2_LINE_MAX];
+        cdef char errbuf[defs._POSIX2_LINE_MAX]
+        cdef int ret
 
-        err = defs.procstat_get_socket_info(self.ps, self.fs, &self.ss, errbuf)
-        if err != 0:
+        with nogil:
+            ret = defs.procstat_get_socket_info(self.ps, self.fs, &self.ss, errbuf)
+
+        if ret != 0:
             pass
 
     def __getstate__(self):
@@ -377,9 +383,10 @@ cdef class Process(object):
         self.free = False
 
     def __dealloc__(self):
-        defs.procstat_close(self.ps)
-        if self.free:
-            free(self.proc)
+        with nogil:
+            defs.procstat_close(self.ps)
+            if self.free:
+                free(self.proc)
 
     def __repr__(self):
         return str(self)
@@ -428,8 +435,12 @@ cdef class Process(object):
         def __get__(self):
             cdef defs.procstat *ps
             cdef char buf[defs._POSIX2_LINE_MAX]
+            cdef int ret
 
-            if defs.procstat_getpathname(self.ps, self.proc, buf, sizeof(buf) - 1) < 0:
+            with nogil:
+                ret = defs.procstat_getpathname(self.ps, self.proc, buf, sizeof(buf) - 1)
+
+            if ret < 0:
                 return None
 
             return buf
@@ -439,7 +450,9 @@ cdef class Process(object):
             cdef char **c_argv
             cdef char *ptr
 
-            c_argv = defs.procstat_getargv(self.ps, self.proc, 0)
+            with nogil:
+                c_argv = defs.procstat_getargv(self.ps, self.proc, 0)
+
             if c_argv == NULL:
                 raise OSError(errno, os.strerror(errno))
 
@@ -452,14 +465,17 @@ cdef class Process(object):
                 yield ptr
                 i += 1
 
-            defs.procstat_freeargv(self.ps)
+            with nogil:
+                defs.procstat_freeargv(self.ps)
 
     property env:
         def __get__(self):
             cdef char **c_env
             cdef char *ptr
 
-            c_env = defs.procstat_getenvv(self.ps, self.proc, 0)
+            with nogil:
+                c_env = defs.procstat_getenvv(self.ps, self.proc, 0)
+
             if c_env == NULL:
                 raise OSError(errno, os.strerror(errno))
 
@@ -472,7 +488,8 @@ cdef class Process(object):
                 yield ptr
                 i += 1
 
-            defs.procstat_freeenvv(self.ps)
+            with nogil:
+                defs.procstat_freeenvv(self.ps)
 
     property started_at:
         def __get__(self):
@@ -499,8 +516,9 @@ cdef class Process(object):
                 defs.PS_FST_TYPE_SOCKET: OpenSocket
             }
 
+            with nogil:
+                fs_list = defs.procstat_getfiles(self.ps, self.proc, 0)
 
-            fs_list = defs.procstat_getfiles(self.ps, self.proc, 0)
             if fs_list == <defs.filestat_list *>NULL:
                 raise OSError(errno, os.strerror(errno))
 
@@ -563,9 +581,9 @@ def statfs(path):
 
     path = path.encode('utf-8')
     c_path = path
-    statfs = <defs.statfs*>malloc(cython.sizeof(defs.statfs))
 
     with nogil:
+        statfs = <defs.statfs*>malloc(cython.sizeof(defs.statfs))
         ret = defs.c_statfs(c_path, statfs)
 
     if ret != 0:
@@ -582,6 +600,7 @@ def nmount(**kwargs):
     cdef int i
     cdef int ret
     cdef int flags
+    cdef int kwargs_len
 
     flags = kwargs.pop('flags', 0)
 
@@ -590,7 +609,10 @@ def nmount(**kwargs):
 
     i = 0
     args = []
-    iov = <defs.iovec*>malloc(cython.sizeof(defs.iovec) * len(kwargs) * 2)
+    kwargs_len = len(kwargs)
+
+    with nogil:
+        iov = <defs.iovec*>malloc(cython.sizeof(defs.iovec) * kwargs_len * 2)
 
     for k, v in kwargs.items():
         args.append(k.encode('utf-8', 'ignore'))
@@ -625,16 +647,24 @@ def unmount(dir, flags=0):
 def kinfo_getproc(pid):
     cdef Process ret
     cdef defs.kinfo_proc* proc
+    cdef defs.procstat *ps
+    cdef int c_pid
 
-    proc = defs.kinfo_getproc(pid)
+    c_pid = pid
+
+    with nogil:
+        proc = defs.kinfo_getproc(c_pid)
+        ps = defs.procstat_open_sysctl()
+
     if proc == NULL:
         raise LookupError("PID {0} not found".format(pid))
 
+    if ps == NULL:
+        raise OSError(errno, os.strerror(errno))
+
     ret = Process.__new__(Process)
     ret.proc = proc
-    ret.ps = defs.procstat_open_sysctl()
-    if ret.ps == NULL:
-        raise OSError(errno, os.strerror(errno))
+    ret.ps = ps
 
     return ret
 
@@ -643,9 +673,15 @@ def opencore(filename):
     cdef Process ret
     cdef defs.kinfo_proc *proc
     cdef defs.procstat *ps = NULL
+    cdef char *c_filename
     cdef unsigned int count
 
-    ps = defs.procstat_open_core(filename.encode('utf-8'))
+    decoded_filename = filename.encode('utf-8')
+    c_filename = decoded_filename
+
+    with nogil:
+        ps = defs.procstat_open_core(c_filename)
+
     if ps == NULL:
         raise OSError(errno, os.strerror(errno))
 
@@ -664,6 +700,7 @@ def opencore(filename):
 def getprocs(predicate, arg=0):
     cdef Process proc
     cdef defs.procstat *ps
+    cdef defs.procstat *tmp_ps
     cdef defs.kinfo_proc *ret
     cdef defs.kinfo_proc *tmp
     cdef unsigned int count
@@ -676,7 +713,9 @@ def getprocs(predicate, arg=0):
     c_predicate = predicate
     c_arg = arg
 
-    ps = defs.procstat_open_sysctl()
+    with nogil:
+        ps = defs.procstat_open_sysctl()
+
     if ps == NULL:
         raise OSError(errno, os.strerror(errno))
 
@@ -687,48 +726,68 @@ def getprocs(predicate, arg=0):
         raise OSError(errno, os.strerror(errno))
 
     for i in range(0, count):
-        tmp = <defs.kinfo_proc *>malloc(sizeof(defs.kinfo_proc))
-        memcpy(tmp, &ret[i], sizeof(defs.kinfo_proc))
+        with nogil:
+            tmp = <defs.kinfo_proc *>malloc(sizeof(defs.kinfo_proc))
+            memcpy(tmp, &ret[i], sizeof(defs.kinfo_proc))
+            tmp_ps = defs.procstat_open_sysctl()
+
+        if tmp_ps == NULL:
+            raise OSError(errno, os.strerror(errno))
 
         proc = Process.__new__(Process)
         proc.proc = tmp
         proc.free = True
-        proc.ps = defs.procstat_open_sysctl()
-        if proc.ps == NULL:
-            raise OSError(errno, os.strerror(errno))
+        proc.ps = tmp_ps
 
         yield proc
 
-    defs.procstat_freeprocs(ps, ret)
-    defs.procstat_close(ps)
+    with nogil:
+        defs.procstat_freeprocs(ps, ret)
+        defs.procstat_close(ps)
 
 
 def getswapinfo():
+    cdef const char *c_name = "py-bsd"
     cdef SwapDevice swapdev
     cdef char errstr[128]
     cdef defs.kvm_swap swap[1024]
     cdef defs.kvm_t *kd
+    cdef int ret
 
-    kd = defs.kvm_open(NULL, NULL, NULL, 0, "py-bsd")
+    with nogil:
+        kd = defs.kvm_open(NULL, NULL, NULL, 0, c_name)
+
     if kd == NULL:
         raise OSError(errno, os.strerror(errno))
 
-    ret = defs.kvm_getswapinfo(kd, swap, 1024, 0)
+    with nogil:
+        ret = defs.kvm_getswapinfo(kd, swap, 1024, 0)
+
     if ret < 0:
         raise OSError(errno, os.strerror(errno))
 
     for i in range(0, ret):
         swapdev = SwapDevice.__new__(SwapDevice)
-        memcpy(&swapdev.swap, &swap[i], sizeof(defs.kvm_swap))
+        with nogil:
+            memcpy(&swapdev.swap, &swap[i], sizeof(defs.kvm_swap))
+
         yield swapdev
 
-    defs.kvm_close(kd)
+    with nogil:
+        defs.kvm_close(kd)
 
 
 def clock_gettime(clock):
     cdef defs.timespec tp
+    cdef defs.clockid_t clock_t
+    cdef int ret
 
-    if defs.clock_gettime(clock, &tp) != 0:
+    clock_t = clock
+
+    with nogil:
+        ret = defs.clock_gettime(clock_t, &tp)
+
+    if ret != 0:
         raise OSError(errno, os.strerror(errno))
 
     return tp.tv_sec + tp.tv_nsec * 1e-9
@@ -736,12 +795,19 @@ def clock_gettime(clock):
 
 def clock_settime(clock, value):
     cdef defs.timespec tp
+    cdef defs.clockid_t clock_t
+    cdef int ret
+
+    clock_t = clock
 
     frac, rest = math.modf(value)
     tp.tv_sec = rest
     tp.tv_nsec = frac * 1e9
 
-    if defs.clock_settime(clock, &tp) != 0:
+    with nogil:
+        ret = defs.clock_settime(clock_t, &tp)
+
+    if ret != 0:
         raise OSError(errno, os.strerror(errno))
 
 
@@ -772,7 +838,15 @@ def lchmod(path, mode, recursive=False):
 
 
 def login_tty(fd):
-    if defs.login_tty(fd) == -1:
+    cdef int ret
+    cdef int c_fd
+
+    c_fd = fd
+
+    with nogil:
+        ret = defs.login_tty(c_fd)
+
+    if ret == -1:
         raise OSError(errno, os.strerror(errno))
 
 

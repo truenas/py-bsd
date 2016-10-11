@@ -651,12 +651,12 @@ cdef extern from "devinfo.h":
     devinfo_rman *devinfo_handle_to_rman(devinfo_handle_t handle)
 
 
-cdef extern from "libutil.h":
+cdef extern from "libutil.h" nogil:
     int login_tty(int fd);
     # expose pidfile_* functions?
 
 
-cdef extern from "kvm.h":
+cdef extern from "kvm.h" nogil:
     ctypedef struct kvm_t:
         pass
 
