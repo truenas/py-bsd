@@ -40,3 +40,4 @@ from ._bsd import nmount, unmount, getmntinfo, statfs
 from ._bsd import kinfo_getproc, opencore, getprocs, clock_gettime, clock_settime
 from ._bsd import lchown, lchmod
 from ._bsd import getswapinfo
+from ._bsd import closefrom
