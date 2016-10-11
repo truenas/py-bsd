@@ -128,6 +128,7 @@ cdef class NIS(object):
         This is slightly different from the libc routines, in that
         we simply call yp_client_first() for the proper map, and then
         yield results until yp_client_next() returns an error.
+        Note that mapname is a string, converted to bytes because reasons.
         """
         cdef const char *first_key = NULL
         cdef const char *next_key = NULL
@@ -172,19 +173,19 @@ cdef class NIS(object):
             
     def getpwnam(self, name):
         if os.geteuid() == 0:
-            mapname = "master.passwd.byname"
+            mapname = b"master.passwd.byname"
         else:
-            mapname = "passwd.byname"
+            mapname = b"passwd.byname"
             
-        return self._getpw(mapname.encode('utf-8'), name.encode('utf-8'))
+        return self._getpw(mapname, name.encode('utf-8'))
 
     def getpwuid(self, uid):
         if os.geteuid() == 0:
-            mapname = "master.passwd.byuid"
+            mapname = b"master.passwd.byuid"
         else:
-            mapname = "passwd.byuid"
+            mapname = b"passwd.byuid"
             
-        return self._getpw(mapname.encode('utf-8'), str(uid).encode('utf-8'))
+        return self._getpw(mapname, str(uid).encode('utf-8'))
 
     def _getgr(self, const char *c_mapname, const char *c_keyvalue):
         cdef char *gr_ent = NULL
@@ -206,13 +207,13 @@ cdef class NIS(object):
     def getgrnam(self, grpname):
         if grpname is None:
             raise ValueError("grpname must be defined")
-        return self._getgr("group.byname".encode('utf-8'), grpname.encode('utf-8'))
+        return self._getgr(b"group.byname", grpname.encode('utf-8'))
 
     def getgrgid(self, guid):
-        return self._getgr("group.bygid".encode('utf-8'), str(guid).encode('utf-8'))
+        return self._getgr(b"group.bygid", str(guid).encode('utf-8'))
 	
     def getgrent(self):
-        return self._get_entries("group.byname".encode('utf-8'), _make_gr)
+        return self._get_entries("group.byname", _make_gr)
 
     def update_pwent(self, old_password, new_pwent):
         cdef passwd pwent_copy
