@@ -837,6 +837,11 @@ def lchmod(path, mode, recursive=False):
             os.lchmod(os.path.join(root, n), mode)
 
 
+def closefrom(int lowfd):
+    with nogil:
+        defs.closefrom(lowfd)
+
+
 def login_tty(fd):
     cdef int ret
     cdef int c_fd

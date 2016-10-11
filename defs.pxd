@@ -33,6 +33,10 @@ cdef extern from "limits.h":
         _POSIX2_LINE_MAX
 
 
+cdef extern from "unistd.h" nogil:
+    void closefrom(int lowfd)
+
+
 cdef extern from "sys/uio.h":
     cdef struct iovec:
         void* iov_base
