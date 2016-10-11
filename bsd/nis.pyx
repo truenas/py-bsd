@@ -206,7 +206,7 @@ cdef class NIS(object):
     def getgrnam(self, grpname):
         if grpname is None:
             raise ValueError("grpname must be defined")
-        return self._getgr("group.byname", grpname.encode('utf-8'))
+        return self._getgr("group.byname".encode('utf-8'), grpname.encode('utf-8'))
 
     def getgrgid(self, guid):
         return self._getgr("group.bygid".encode('utf-8'), str(guid).encode('utf-8'))
