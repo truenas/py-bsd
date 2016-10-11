@@ -206,13 +206,13 @@ cdef class NIS(object):
     def getgrnam(self, grpname):
         if grpname is None:
             raise ValueError("grpname must be defined")
-        return self._getgr("group.byname", grpname)
+        return self._getgr("group.byname", grpname.encode('utf-8'))
 
     def getgrgid(self, guid):
-        return self._getgr("group.bygid", str(guid))
-    
+        return self._getgr("group.bygid".encode('utf-8'), str(guid).encode('utf-8'))
+	
     def getgrent(self):
-        return self._get_entries("group.byname", _make_gr)
+        return self._get_entries("group.byname".encode('utf-8'), _make_gr)
 
     def update_pwent(self, old_password, new_pwent):
         cdef passwd pwent_copy
