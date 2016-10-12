@@ -4,6 +4,7 @@ import os
 import sys
 import cython
 import pwd
+import grp
 
 """
 This offers a series of python bindings for NIS/YP.
@@ -52,23 +53,7 @@ cdef extern from "yp_client.h" nogil:
     cdef extern int yp_client_update_pwent(void *context,
                                            const char *old_password,
                                            const passwd *pwent)
-class grp(object):
-    def __init__(self, gr_name=None, gr_passwd='*', gr_gid=None, gr_mem=[]):
-        self.gr_name = gr_name
-        self.gr_passwd = gr_passwd
-        self.gr_gid = gr_gid
-        if isinstance(gr_mem, list):
-            self.gr_mem = gr_mem
-        else:
-            self.gr_mem = [gr_mem]
-    def __repr__(self):
-        return "{}(gr_name='{}', gr_passwd='{}', gr_gid={}, gr_mem={})".format(
-            self.__class__.__name__,
-            self.gr_name, self.gr_passwd, self.gr_gid, self.gr_mem)
-    def __str__(self):
-        return "{}:{}:{}:{}".format(self.gr_name, self.gr_passwd, self.gr_gid,
-                                    ",".join(self.gr_mem))
-            
+
 def _make_pwent(pw):
     return "{}:{}:{}:{}:{}:{}:{}".format(
         pw.pw_name, pw.pw_passwd, pw.pw_uid,
@@ -77,10 +62,8 @@ def _make_pwent(pw):
 
 def _make_gr(entry):
     fields = entry.split(':')
-    return grp(gr_name=fields[0],
-               gr_passwd=fields[1],
-               gr_gid=fields[2],
-               gr_mem=fields[3].split(','))
+    return grp.struct_group((fields[0], fields[1], int(fields[2]),
+                             fields[3].split(',')))
 
 cdef _make_pw(entry):
     fields = entry.split(':')
