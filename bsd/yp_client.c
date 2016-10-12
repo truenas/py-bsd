@@ -202,7 +202,7 @@ yp_client_init(const char *domain, const char *server)
 		pai.ai_flags = AI_NUMERICSERV;
 		
 		rv = getaddrinfo(server, "0", &pai, &ai);
-		if (rv == -1)
+		if (rv != 0)
 			goto done;
 		// Yes, we only use one address; it's possible this should change
 		bcopy(ai->ai_addr, &ss, ai->ai_addrlen);
