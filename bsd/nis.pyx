@@ -5,6 +5,9 @@ import sys
 import cython
 import pwd
 import grp
+import logging
+
+logger = logging.getLogger(__name__)
 
 """
 This offers a series of python bindings for NIS/YP.
@@ -67,9 +70,23 @@ def _make_gr(entry):
 
 cdef _make_pw(entry):
     fields = entry.split(':')
-    retval = pwd.struct_passwd((fields[0], fields[1],
-                                int(fields[2]), int(fields[3]),
-                                fields[4], fields[5], fields[6]))
+    pw_name = fields[0]
+    pw_passwd = fields[1]
+    pw_uid = int(fields[2])
+    pw_gid = int(fields[3])
+    if len(fields) == 7:
+        pw_gecos = fields[4]
+        pw_dir = fields[5]
+        pw_shell = fields[6]
+    elif len(fields) == 10:
+        # We get different fields for root vs non-root
+        pw_gecos = fields[7]
+        pw_dir = fields[8]
+        pw_shell = fields[9]
+    else:
+        raise ValueError("Invald password entry string")
+    retval = pwd.struct_passwd((pw_name, pw_passwd, pw_uid, pw_gid,
+                                pw_gecos, pw_dir, pw_shell))
     return retval
 
 cdef class NIS(object):
