@@ -20,14 +20,35 @@
 #include <rpcsvc/yp.h>
 #include <rpcsvc/ypclnt.h>
 
+#include "yp_client.h"
+
 typedef struct yp_context {
 	char	*domain;
 	char	*server;
 	CLIENT	*client;
+	int	 yp_error;
 	int	socket;
 	uint16_t	local_port;	// Network byte order
 	struct sockaddr_storage	server_sockaddr;
 } yp_context_t;
+
+static const char *
+yp_client_errors[] = {
+#define STRIFY(x) [x] = #x
+	STRIFY(YP_CLIENT_SUCCESS),
+	STRIFY(YP_CLIENT_NOMATCH),
+	STRIFY(YP_CLIENT_NODOMAIN),
+	STRIFY(YP_CLIENT_YPBIND),
+	STRIFY(YP_CLIENT_RPCERROR),
+	STRIFY(YP_CLIENT_AUTHERR),
+	STRIFY(YP_CLIENT_TIMEOUT),
+	STRIFY(YP_CLIENT_NOHOST),
+	STRIFY(YP_CLIENT_ENOMEM),
+	STRIFY(YP_CLIENT_CONNERR),
+	STRIFY(YP_CLIENT_BADARG),
+	STRIFY(YP_CLIENT_ERRNO),
+#undef STRIFY
+};
 
 /*
  * Does the grunt work of talking to ypbind on localhost.
@@ -36,14 +57,34 @@ typedef struct yp_context {
 static int
 _do_ypbind(const char *domain, struct sockaddr_storage *ss)
 {
+	// At least one of these should exist if ypbind is running
+	static const char *files[] = {
+		"/var/run/ypbind.pid",
+		"/var/run/ypbind.lock",
+		NULL,
+	};
+	size_t indx;
+	int noypbind = 1;
+	
 	struct sockaddr_in ypbind_sin = { 0 };
 	int client_sock = RPC_ANYSOCK;
-	int rv;
+	int rv = YP_CLIENT_SUCCESS;
 	struct ypbind_resp bind_response = { 0 };
 	CLIENT *ypbind_client = NULL;
 	struct timeval tv = { .tv_sec = 5, };
+
 	ypbind_sin.sin_family = AF_INET;	// Only IPv4 for now?
 	ypbind_sin.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	
+	// Let's see if ypbind is running
+	for (indx = 0; files[indx]; indx++) {
+		if (access(files[indx], 0) != -1) {
+			noypbind = 0;
+			break;
+		}
+	}
+	if (noypbind)
+		return YP_CLIENT_YPBIND;
 	
 	ypbind_client = clnttcp_create(&ypbind_sin,
 				       YPBINDPROG, YPBINDVERS, &client_sock,
@@ -52,25 +93,18 @@ _do_ypbind(const char *domain, struct sockaddr_storage *ss)
 		switch (rpc_createerr.cf_stat) {
 		case RPC_PROGNOTREGISTERED:
 			warnx("ypbind program not registered on localhost");
-			rv = -1;
-			errno = ECONNREFUSED;
+			rv = YP_CLIENT_YPBIND;
 			break;
-		case RPC_SYSTEMERROR:
-			warnx("System error while trying to connect to ypbind");
-			rv = -1;
-			errno = EAGAIN;
+		default:	// Should probably handle more errors
+			rv = YP_CLIENT_RPCERROR;
 			break;
-		default:
-			rv = -1;
-			errno = ECONNREFUSED;
 		}
 		return rv;
 	}
 	if (ntohs(ypbind_sin.sin_port) >= IPPORT_RESERVED) {
 		if (ypbind_client)
 			clnt_destroy(ypbind_client);
-		errno = EPERM;
-		return -1;
+		return YP_CLIENT_AUTHERR;
 	}
 	rv = clnt_call(ypbind_client,
 		       YPBINDPROC_DOMAIN,
@@ -79,12 +113,10 @@ _do_ypbind(const char *domain, struct sockaddr_storage *ss)
 	clnt_destroy(ypbind_client);
 	if (rv != RPC_SUCCESS) {
 		if (rv == RPC_PROGUNAVAIL || rv == RPC_PROCUNAVAIL) {
-			errno = ECONNREFUSED;
-			return -1;
+			return YP_CLIENT_YPBIND;
 		}
 		warnx("ypbind for domain %s not responding", domain);
-		errno = ETIMEDOUT;
-		return -1;
+		return YP_CLIENT_TIMEOUT;
 	}
 	/*
 	 * Okay, at this point, bind_response has the information we need.
@@ -98,8 +130,7 @@ _do_ypbind(const char *domain, struct sockaddr_storage *ss)
 	      &ypbind_sin.sin_port,
 	      sizeof(ypbind_sin.sin_port));
 	bcopy(&ypbind_sin, ss, sizeof(ypbind_sin));
-	return 0;
-	
+	return YP_CLIENT_SUCCESS;
 }
 
 /*
@@ -165,8 +196,37 @@ check_yp_client(yp_context_t *ctx)
 	return 1;
 }
 
+int
+yp_client_error(void *ctx)
+{
+	yp_context_t *context = ctx;
+
+	return context->yp_error;
+}
+const char *
+yp_client_errstr(unsigned int  error)
+{
+	static const size_t max_err = sizeof(yp_client_errors) / sizeof(yp_client_errors[0]);
+	if (error > max_err)
+		return NULL;
+	return yp_client_errors[error];
+	
+}
+const char *
+yp_client_domain(void *ctx)
+{
+	yp_context_t *context = ctx;
+	return context->domain;
+}
+const char *
+yp_client_server(void *ctx)
+{
+	yp_context_t *context = ctx;
+	return context->server;
+}
+
 void *
-yp_client_init(const char *domain, const char *server)
+yp_client_init(const char *domain, const char *server, int *errorp)
 {
 	void *retval = NULL;
 	yp_context_t *context = NULL;
@@ -177,15 +237,15 @@ yp_client_init(const char *domain, const char *server)
 	int client_sock = RPC_ANYSOCK;
 	int local_sock = -1;
 	uint16_t local_port = -1;
-	
-	int rv = -1;
+	int rv;
 	
 	if (domain == NULL) {
 		rv = getdomainname(default_domain, sizeof(default_domain));
 		if (rv == -1)
 			goto done;
 		if (default_domain[0] == 0) {
-			errno = ENOENT;
+			if (errorp)
+				*errorp = YP_CLIENT_NODOMAIN;
 			rv = -1;
 			goto done;
 		}
@@ -193,7 +253,9 @@ yp_client_init(const char *domain, const char *server)
 	}
 	if (server == NULL) {
 		rv = _do_ypbind(domain, &ss);
-		if (rv == -1) {
+		if (rv != YP_CLIENT_SUCCESS) {
+			if (errorp)
+				*errorp = rv;
 			goto done;
 		}
 	} else {
@@ -202,8 +264,11 @@ yp_client_init(const char *domain, const char *server)
 		pai.ai_flags = AI_NUMERICSERV;
 		
 		rv = getaddrinfo(server, "0", &pai, &ai);
-		if (rv != 0)
+		if (rv != 0) {
+			if (errorp)
+				*errorp = YP_CLIENT_NOHOST;
 			goto done;
+		}
 		// Yes, we only use one address; it's possible this should change
 		bcopy(ai->ai_addr, &ss, ai->ai_addrlen);
 		freeaddrinfo(ai);
@@ -220,6 +285,8 @@ yp_client_init(const char *domain, const char *server)
 		context = calloc(1, sizeof(*context));
 		if (context == NULL) {
 			clnt_destroy(yp_client);
+			if (errorp)
+				*errorp = YP_CLIENT_ENOMEM;
 		} else {
 			context->domain = strdup(domain);
 			context->server = server ? strdup(server) : NULL;
@@ -227,10 +294,13 @@ yp_client_init(const char *domain, const char *server)
 			context->socket = local_sock;
 			context->local_port = local_port;
 			context->server_sockaddr = ss;
+			context->yp_error = YP_CLIENT_SUCCESS;
 			retval = (void*)context;
 		}
 	} else {
 		warn("Could not connect to server");
+		if (errorp)
+			*errorp = YP_CLIENT_CONNERR;
 	}
 done:
 	return retval;
@@ -254,7 +324,7 @@ int
 yp_client_match(void *ctx,
 		const char *inmap,
 		const char *inkey, size_t inkeylen,
-		const char **outval, size_t *outvallen)
+		char **outval, size_t *outvallen)
 {
 	yp_context_t *context = ctx;
         struct ypresp_val yprv = { 0 };
@@ -262,13 +332,17 @@ yp_client_match(void *ctx,
 	struct ypreq_key yprk;
 	int rv;
 	
-	if (ctx == NULL)
-		return (EINVAL);
+	if (ctx == NULL) {
+		errno = EFAULT;
+		return -1;
+	}
 
 	if (inkey == NULL || strlen(inkey) == 0 || inkeylen <= 0 ||
-	    inmap == NULL || strlen(inmap) == 0)
-		return (EINVAL);
-
+	    inmap == NULL || strlen(inmap) == 0) {
+		context->yp_error = YP_CLIENT_BADARG;
+		return -1;
+	}
+	
 	yprk.domain = context->domain;
 	yprk.map = (char*)inmap;
 	yprk.key.keydat_val = (char*)inkey;
@@ -277,22 +351,45 @@ yp_client_match(void *ctx,
 	rv = clnt_call(context->client, YPPROC_MATCH,
 		       (xdrproc_t)xdr_ypreq_key, &yprk,
 		       (xdrproc_t)xdr_ypresp_val, &yprv, tv);
+	warnx("%s(%d): rv = %d", __FUNCTION__, __LINE__, rv);
 	if (rv != RPC_SUCCESS) {
-		warnx("YPPROC_MATCH failed with %d", rv);
+		context->yp_error = YP_CLIENT_RPCERROR;
+		rv = -1;
 	} else {
 		size_t tmp_len;
 		char *tmp;
 
-		tmp_len = yprv.val.valdat_len;
-		tmp = calloc(1, tmp_len+1);
-		if (tmp) {
-			bcopy(yprv.val.valdat_val, tmp, tmp_len);
-			tmp[tmp_len] = 0;
-			*outvallen = tmp_len;
-			*outval = tmp;
+		if (yprv.stat != YP_TRUE) {
+			warnx("%s(%p, %s, %s, %zu, %p, %p): yp returned %d", __FUNCTION__, ctx, inmap, inkey, inkeylen, outval, outvallen, yprv.stat);
+
+			switch (yprv.stat) {
+			case YP_NOMAP:
+			case YP_NOKEY:
+				// These seem to mean no entry
+				context->yp_error = YP_CLIENT_NOMATCH;
+				break;
+			default:
+				// Calling the rest einval
+				context->yp_error = YP_CLIENT_BADARG;
+				break;
+			}
+			rv = -1;
+		} else {
+			tmp_len = yprv.val.valdat_len;
+			tmp = calloc(1, tmp_len+1);
+			if (tmp) {
+				bcopy(yprv.val.valdat_val, tmp, tmp_len);
+				tmp[tmp_len] = 0;
+				*outvallen = tmp_len;
+				*outval = tmp;
+				context->yp_error = YP_CLIENT_SUCCESS;
+				rv = 0;
+			} else {
+			context->yp_error = YP_CLIENT_ENOMEM;
+			rv = ENOMEM;
+			}
 		}
 		xdr_free((xdrproc_t)xdr_ypresp_val, &yprv);
-		rv = 0;
 	}
 	return rv;
 }
@@ -312,9 +409,11 @@ yp_client_first(void *ctx,
 	if (ctx == NULL)
 		return (EINVAL);
 
-	if (inmap == NULL || strlen(inmap) == 0)
+	if (inmap == NULL || strlen(inmap) == 0) {
+		context->yp_error = YP_CLIENT_BADARG;
 		return (EINVAL);
-
+	}
+	
 	yprk.domain = context->domain;
 	yprk.map = (char*)inmap;
 
@@ -322,6 +421,7 @@ yp_client_first(void *ctx,
 		       (xdrproc_t)xdr_ypreq_nokey, &yprk,
 		       (xdrproc_t)xdr_ypresp_key_val, &yprkv, tv);
 	if (rv != RPC_SUCCESS) {
+		context->yp_error = YP_CLIENT_RPCERROR;
 		warnx("YPPROC_FIRST failed with %d", rv);
 	} else if (ypprot_err(yprkv.stat) == 0) {
 		size_t tmp_len;
@@ -347,9 +447,11 @@ yp_client_first(void *ctx,
 			} else {
 				free((void*)*outkey);
 				*outkey = NULL;
+				context->yp_error = YP_CLIENT_ENOMEM;
 				rv = ENOMEM;
 			}
 		} else {
+			context->yp_error = YP_CLIENT_ENOMEM;
 			rv = ENOMEM;
 		}
 		xdr_free((xdrproc_t)xdr_ypresp_val, &yprkv);
@@ -371,11 +473,13 @@ yp_client_next(void *ctx,
 	int rv;
 	
 	if (ctx == NULL)
-		return (EINVAL);
+		return -1;
 
 	if (inkey == NULL || strlen(inkey) == 0 || inkeylen <= 0 ||
-	    inmap == NULL || strlen(inmap) == 0)
-		return (EINVAL);
+	    inmap == NULL || strlen(inmap) == 0) {
+		context->yp_error = YP_CLIENT_BADARG;
+		return -1;
+	}
 
 	yprk.domain = context->domain;
 	yprk.map = (char*)inmap;
@@ -386,7 +490,9 @@ yp_client_next(void *ctx,
 		       (xdrproc_t)xdr_ypreq_key, &yprk,
 		       (xdrproc_t)xdr_ypresp_key_val, &yprkv, tv);
 	if (rv != RPC_SUCCESS) {
+		context->yp_error = YP_CLIENT_RPCERROR;
 		warnx("YPPROC_MATCH failed with %d", rv);
+		rv = -1;
 	} else if (ypprot_err(yprkv.stat) == 0) {
 		size_t tmp_len;
 		char *tmp;
@@ -411,20 +517,25 @@ yp_client_next(void *ctx,
 			} else {
 				free((void*)*outkey);
 				*outkey = NULL;
-				rv = ENOMEM;
+				context->yp_error = YP_CLIENT_ENOMEM;
+				rv = -1;
 			}
 		} else {
-			rv = ENOMEM;
+			context->yp_error = YP_CLIENT_ENOMEM;
+			rv = -1;
 		}
 		xdr_free((xdrproc_t)xdr_ypresp_val, &yprkv);
 	} else {
 		rv = ypprot_err(yprkv.stat);
 		switch (rv) {
 		case YPERR_NOMORE:
-			rv = ENOENT;
+			*outkey = NULL;
+			*outkeylen = 0;
+			rv = 0;
 			break;
 		default:
-			rv = EINVAL;
+			context->yp_error = YP_CLIENT_RPCERROR;
+			rv = -1;
 		}
 	}
 	return rv;

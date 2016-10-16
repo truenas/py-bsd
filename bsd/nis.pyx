@@ -22,6 +22,9 @@ from libc.string cimport strerror, strlen
 from libc.errno cimport *
 cimport defs
 
+cdef extern from "errno.h":
+    extern int errno
+    
 cdef extern from "pwd.h":
     ctypedef int time_t
     ctypedef int uid_t
@@ -41,8 +44,26 @@ cdef extern from "pwd.h":
         int	pw_fields
         
 cdef extern from "yp_client.h" nogil:
-    cdef extern void *yp_client_init(const char *domain, const char *server)
+    enum:
+        YP_CLIENT_SUCCESS
+        YP_CLIENT_NOMATCH
+        YP_CLIENT_NODOMAIN
+        YP_CLIENT_YPBIND
+        YP_CLIENT_RPCERROR
+        YP_CLIENT_AUTHERR
+        YP_CLIENT_TIMEOUT
+        YP_CLIENT_NOHOST
+        YP_CLIENT_ENOMEM
+        YP_CLIENT_CONNERR
+        YP_CLIENT_BADARG
+        YP_CLIENT_ERRNO
+        
+    cdef extern const char *yp_client_errstr(unsigned int error)
+    cdef extern void *yp_client_init(const char *domain, const char *server, int *errorp)
     cdef extern void yp_client_close(void *context)
+    cdef extern int yp_client_error(void *context)
+    cdef extern const char *yp_client_domain(void *context)
+    cdef extern const char *yp_client_server(void *context)
     cdef extern int yp_client_match(void *context,
                                     const char *inmap, const char *inkey, size_t inkeylen,
                                     char **outval, size_t *outvallen)
@@ -89,6 +110,28 @@ cdef _make_pw(entry):
                                 pw_gecos, pw_dir, pw_shell))
     return retval
 
+class NISError(Exception):
+    def __init__(self, code=0, exp=None):
+        print("NISError(code={}, exp={}".format(code, exp), file=sys.stderr)
+        if code == YP_CLIENT_ERRNO:
+            raise OSError(errno, os.strerror(errno))
+        else:
+            self.code = code
+            if exp is None:
+                if code is YP_CLIENT_YPBIND:
+                    exp = "Could not connect to ypbind on localhost"
+                elif code is YP_CLIENT_ENOMEM:
+                    exp = "Unable to allocate memory"
+                elif code is YP_CLIENT_CONNERR:
+                    exp = "Unable to connect to ypserv on remote host"
+                elif code is YP_CLIENT_RPCERROR:
+                    exp = "RPC Error"
+                else:
+                    exp = "Generic YP error?"
+            self.explanation = exp
+    def __str__(self):
+        return "NISError(code={}, explanation={})".format(yp_client_errstr(self.code), self.explanation)
+
 cdef class NIS(object):
     cdef void *ctx
     cdef const char *domain
@@ -98,14 +141,23 @@ cdef class NIS(object):
         stupid_temp_server = server.encode('utf-8') if server else None
         cdef const char *c_domain = stupid_temp_domain or <const char*>NULL
         cdef const char *c_server = stupid_temp_server or <const char *>NULL
+        cdef int error
+        
         with nogil:
-            self.ctx = yp_client_init(c_domain, c_server)
+            self.ctx = yp_client_init(c_domain, c_server, &error)
         if self.ctx == NULL:
-            raise OSError(ENOMEM, strerror(ENOMEM))
+            raise NISError(error)
+        
         self.domain = c_domain
         self.server = c_server
         return
 
+    def __del__(self):
+        if self.ctx:
+            with nogil:
+                yp_client_close(self.ctx)
+        # Do I need to call object's destructor?
+        
     def _getpw(self, const char *c_mapname, const char *c_keyvalue):
         cdef char *pw_ent = NULL
         cdef size_t pw_ent_len
@@ -114,8 +166,11 @@ cdef class NIS(object):
         with nogil:
             rv = yp_client_match(self.ctx, c_mapname, c_keyvalue, strlen(c_keyvalue), &pw_ent, &pw_ent_len)
         if rv != 0:
-            raise OSError(rv, strerror(rv))
+            print("_getpw(self, {}, {}): rv = {}, yp_client_error(self.ctx) = {}".format(
+                c_mapname, c_keyvalue, rv, yp_client_error(self.ctx)), file=sys.stderr)
+            raise NISError(yp_client_error(self.ctx), "Unable to find {} in map {}".format(c_keyvalue, c_mapname))
         
+        print("rv = {}, pw_ent = {}".format(rv, pw_ent.encode("utf-8") if pw_ent else None))
         retval = _make_pw(pw_ent)
         free(pw_ent)
         if retval:
@@ -157,6 +212,12 @@ cdef class NIS(object):
                                         first_key, first_keylen,
                                         &next_key, &next_keylen,
                                         &out_value, &out_len)
+                if rv == 0 and next_key == NULL:
+                    # This means we've run out of keys
+                    break
+            if rv != 0:
+                raise NISError(yp_client_error(self.ctx))
+ 
         finally:
             if first_key:
                 free(<void*>first_key)
@@ -196,7 +257,7 @@ cdef class NIS(object):
             rv = yp_client_match(self.ctx, c_mapname, c_keyvalue, strlen(c_keyvalue), &gr_ent, &gr_ent_len)
 
         if rv != 0:
-            raise OSError(rv, strerror(rv))
+            raise NISError(yp_client_error(self.ctx), "Unable to find {} in map {}".format(c_keyvalue, c_mapname))
         
         retval = _make_gr(gr_ent)
         free(gr_ent)
