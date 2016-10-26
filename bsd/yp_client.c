@@ -174,6 +174,15 @@ yp_client_create(struct sockaddr_storage *ss, int *sock, uint16_t *port)
 	return retval;
 }
 
+/*
+ * This doesn't do enough yet.
+ * What we really need to do is check to see if the connection
+ * is still there, and valid.  If we're using ypbind, we need
+ * to see if we're still able to use it for the requested domain
+ * (and possibly update the address we got).
+ *
+ * So the question is how to do all that?
+ */
 static int
 check_yp_client(yp_context_t *ctx)
 {
@@ -241,12 +250,14 @@ yp_client_init(const char *domain, const char *server, int *errorp)
 	
 	if (domain == NULL) {
 		rv = getdomainname(default_domain, sizeof(default_domain));
-		if (rv == -1)
+		if (rv == -1) {
+			if (errorp)
+				*errorp = YP_CLIENT_ERRNO;
 			goto done;
+		}
 		if (default_domain[0] == 0) {
 			if (errorp)
 				*errorp = YP_CLIENT_NODOMAIN;
-			rv = -1;
 			goto done;
 		}
 		domain = default_domain;

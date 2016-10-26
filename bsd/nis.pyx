@@ -112,7 +112,7 @@ cdef _make_pw(entry):
 
 class NISError(Exception):
     def __init__(self, code=0, exp=None):
-        print("NISError(code={}, exp={}".format(code, exp), file=sys.stderr)
+        print("NISError(code={}, exp={})".format(code, exp), file=sys.stderr)
         if code == YP_CLIENT_ERRNO:
             raise OSError(errno, os.strerror(errno))
         else:
