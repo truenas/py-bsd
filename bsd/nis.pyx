@@ -170,7 +170,6 @@ cdef class NIS(object):
                 c_mapname, c_keyvalue, rv, yp_client_error(self.ctx)), file=sys.stderr)
             raise NISError(yp_client_error(self.ctx), "Unable to find {} in map {}".format(c_keyvalue, c_mapname))
         
-        print("rv = {}, pw_ent = {}".format(rv, pw_ent.encode("utf-8") if pw_ent else None))
         retval = _make_pw(pw_ent)
         free(pw_ent)
         if retval:

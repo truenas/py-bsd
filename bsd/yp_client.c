@@ -362,7 +362,6 @@ yp_client_match(void *ctx,
 	rv = clnt_call(context->client, YPPROC_MATCH,
 		       (xdrproc_t)xdr_ypreq_key, &yprk,
 		       (xdrproc_t)xdr_ypresp_val, &yprv, tv);
-	warnx("%s(%d): rv = %d", __FUNCTION__, __LINE__, rv);
 	if (rv != RPC_SUCCESS) {
 		context->yp_error = YP_CLIENT_RPCERROR;
 		rv = -1;
