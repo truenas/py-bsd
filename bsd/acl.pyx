@@ -132,6 +132,9 @@ cdef class ACL(object):
 
         self.acl = defs.acl_init(0)
 
+    def __dealloc__(self):
+        defs.acl_free(self.acl)
+
     def __getstate__(self):
         return [i.__getstate__() for i in self.entries]
 
@@ -223,7 +226,11 @@ cdef class ACL(object):
 
     property text:
         def __get__(self):
-            return defs.acl_to_text(self.acl, NULL).decode('utf8')
+            cdef char *text = defs.acl_to_text(self.acl, NULL)
+
+            ret = text.decode('utf8')
+            defs.acl_free(text)
+            return ret
 
         def __set__(self, text):
             self.acl = defs.acl_from_text(text)
