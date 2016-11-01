@@ -133,7 +133,7 @@ cdef class ACL(object):
         self.acl = defs.acl_init(0)
 
     def __dealloc__(self):
-        defs.acl_free(self.acl)
+        defs.acl_free(<void *>self.acl)
 
     def __getstate__(self):
         return [i.__getstate__() for i in self.entries]
@@ -229,7 +229,7 @@ cdef class ACL(object):
             cdef char *text = defs.acl_to_text(self.acl, NULL)
 
             ret = text.decode('utf8')
-            defs.acl_free(text)
+            defs.acl_free(<void *>text)
             return ret
 
         def __set__(self, text):
