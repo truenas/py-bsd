@@ -48,6 +48,8 @@ cdef extern from "yp_client.h" nogil:
         YP_CLIENT_SUCCESS
         YP_CLIENT_NOMATCH
         YP_CLIENT_NODOMAIN
+        YP_CLIENT_NOMAP
+        YP_CLIENT_NOKEY
         YP_CLIENT_YPBIND
         YP_CLIENT_RPCERROR
         YP_CLIENT_AUTHERR

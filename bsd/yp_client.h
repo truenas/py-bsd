@@ -7,6 +7,8 @@ enum yp_client_error {
 	YP_CLIENT_SUCCESS = 0,
 	YP_CLIENT_NOMATCH,	// Key not found
 	YP_CLIENT_NODOMAIN,	// No domain given
+	YP_CLIENT_NOMAP,	// No map given
+	YP_CLIENT_NOKEY,	// No key given
 	YP_CLIENT_YPBIND,	// Unable to reach ypbind on localhost
 	YP_CLIENT_RPCERROR,	// Generic RPC error
 	YP_CLIENT_AUTHERR,	// Authorization error

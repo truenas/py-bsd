@@ -433,36 +433,59 @@ yp_client_first(void *ctx,
 	if (rv != RPC_SUCCESS) {
 		context->yp_error = YP_CLIENT_RPCERROR;
 		warnx("YPPROC_FIRST failed with %d", rv);
-	} else if (ypprot_err(yprkv.stat) == 0) {
-		size_t tmp_len;
-		char *tmp;
+	} else {
+		if (ypprot_err(yprkv.stat) == 0) {
+			size_t tmp_len;
+			char *tmp;
 
-		tmp_len = yprkv.key.keydat_len;
-		tmp = calloc(1, tmp_len+1);
-		if (tmp) {
-			bcopy(yprkv.key.keydat_val, tmp, tmp_len);
-			tmp[tmp_len] = 0;
-			*outkey = tmp;
-			*outkeylen = tmp_len;
-			
-
-			tmp_len = yprkv.val.valdat_len;
+			tmp_len = yprkv.key.keydat_len;
 			tmp = calloc(1, tmp_len+1);
 			if (tmp) {
-				bcopy(yprkv.val.valdat_val, tmp, tmp_len);
+				bcopy(yprkv.key.keydat_val, tmp, tmp_len);
 				tmp[tmp_len] = 0;
-				*outvallen = tmp_len;
-				*outval = tmp;
-				rv = 0;
+				*outkey = tmp;
+				*outkeylen = tmp_len;
+				
+
+				tmp_len = yprkv.val.valdat_len;
+				tmp = calloc(1, tmp_len+1);
+				if (tmp) {
+					bcopy(yprkv.val.valdat_val, tmp, tmp_len);
+					tmp[tmp_len] = 0;
+					*outvallen = tmp_len;
+					*outval = tmp;
+					rv = 0;
+				} else {
+					free((void*)*outkey);
+					*outkey = NULL;
+					context->yp_error = YP_CLIENT_ENOMEM;
+					rv = ENOMEM;
+				}
 			} else {
-				free((void*)*outkey);
-				*outkey = NULL;
 				context->yp_error = YP_CLIENT_ENOMEM;
 				rv = ENOMEM;
 			}
 		} else {
-			context->yp_error = YP_CLIENT_ENOMEM;
-			rv = ENOMEM;
+			switch (yprkv.stat) {
+			case YP_NODOM:
+				// I think this means the server doesn't know our domain
+//				warnx("%s(%d):  domain should be %s", __FUNCTION__, __LINE__, context->domain);
+				context->yp_error = YP_CLIENT_NODOMAIN; break;
+			case YP_NOMAP:
+				// I think this means the map doesn't exist
+//				warnx("%s(%d):  map should be %s", __FUNCTION__, __LINE__, inmap);
+				context->yp_error = YP_CLIENT_NOMAP; break;
+			case YP_NOKEY:
+				context->yp_error = YP_CLIENT_NOKEY; break;
+			case YP_BADOP:
+			case YP_BADDB:
+			case YP_YPERR:
+			case YP_BADARGS:
+			case YP_VERS:
+			default:
+				context->yp_error = YP_CLIENT_BADARG; break;
+			}
+			rv = -1;	// Generic error return value
 		}
 		xdr_free((xdrproc_t)xdr_ypresp_val, &yprkv);
 	}
