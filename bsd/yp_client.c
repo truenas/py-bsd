@@ -234,6 +234,33 @@ yp_client_server(void *ctx)
 	return context->server;
 }
 
+/*
+ * For now, this is simply a routine to call
+ * YPPROC_MAPLIST, to verify the domain.  If it
+ * fails, we return an error.
+ */
+static int
+check_maplist(yp_context_t *context)
+{
+	struct ypresp_maplist foo = {};
+	struct timeval tv = { .tv_sec = 5, };
+	int rv;
+
+	rv = clnt_call(context->client, YPPROC_MAPLIST,
+		       (xdrproc_t)xdr_domainname, &context->domain,
+		       (xdrproc_t)xdr_ypresp_maplist, &foo, tv);
+	if (rv != RPC_SUCCESS) {
+		return YP_CLIENT_RPCERROR;
+	}
+	if (ypprot_err(foo.stat)) {
+		rv = YP_CLIENT_NODOMAIN;
+	} else
+		rv = 0;
+	xdr_free((xdrproc_t)xdr_ypresp_maplist, &foo);
+	return rv;
+	
+}
+
 void *
 yp_client_init(const char *domain, const char *server, int *errorp)
 {
@@ -299,6 +326,7 @@ yp_client_init(const char *domain, const char *server, int *errorp)
 			if (errorp)
 				*errorp = YP_CLIENT_ENOMEM;
 		} else {
+			int error;
 			context->domain = strdup(domain);
 			context->server = server ? strdup(server) : NULL;
 			context->client = yp_client;
@@ -306,7 +334,13 @@ yp_client_init(const char *domain, const char *server, int *errorp)
 			context->local_port = local_port;
 			context->server_sockaddr = ss;
 			context->yp_error = YP_CLIENT_SUCCESS;
-			retval = (void*)context;
+			error = check_maplist(context);
+			if (error) {
+				*errorp = error;
+				yp_client_close((void*)context);
+			} else {
+				retval = (void*)context;
+			}
 		}
 	} else {
 		warn("Could not connect to server");
