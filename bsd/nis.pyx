@@ -1,5 +1,4 @@
 # cython: c_string_type=unicode, c_string_encoding=utf-8
-from __future__ import print_function
 import os
 import sys
 import cython
@@ -114,7 +113,6 @@ cdef _make_pw(entry):
 
 class NISError(Exception):
     def __init__(self, code=0, exp=None):
-        print("NISError(code={}, exp={})".format(code, exp), file=sys.stderr)
         if code == YP_CLIENT_ERRNO:
             raise OSError(errno, os.strerror(errno))
         else:
@@ -168,8 +166,6 @@ cdef class NIS(object):
         with nogil:
             rv = yp_client_match(self.ctx, c_mapname, c_keyvalue, strlen(c_keyvalue), &pw_ent, &pw_ent_len)
         if rv != 0:
-            print("_getpw(self, {}, {}): rv = {}, yp_client_error(self.ctx) = {}".format(
-                c_mapname, c_keyvalue, rv, yp_client_error(self.ctx)), file=sys.stderr)
             raise NISError(yp_client_error(self.ctx), "Unable to find {} in map {}".format(c_keyvalue, c_mapname))
         
         retval = _make_pw(pw_ent)
