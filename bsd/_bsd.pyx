@@ -477,7 +477,7 @@ cdef class Process(object):
                 c_env = defs.procstat_getenvv(self.ps, self.proc, 0)
 
             if c_env == NULL:
-                raise OSError(errno, os.strerror(errno))
+                return
 
             i = 0
             while True:
