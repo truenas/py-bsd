@@ -856,7 +856,7 @@ def login_tty(fd):
 
 
 def setproctitle(title):
-    defs.setproctitle(title)
+    defs.setproctitle(title.encode('utf-8'))
 
 
 def bitmask_to_set(n, enumeration):
