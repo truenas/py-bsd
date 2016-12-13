@@ -855,6 +855,10 @@ def login_tty(fd):
         raise OSError(errno, os.strerror(errno))
 
 
+def setproctitle(title):
+    defs.setproctitle(title)
+
+
 def bitmask_to_set(n, enumeration):
     result = set()
     while n:

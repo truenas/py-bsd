@@ -35,6 +35,7 @@ cdef extern from "limits.h":
 
 cdef extern from "unistd.h" nogil:
     void closefrom(int lowfd)
+    void setproctitle(const char *fmt, ...)
 
 
 cdef extern from "sys/uio.h":
