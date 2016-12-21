@@ -454,7 +454,7 @@ cdef class Process(object):
                 c_argv = defs.procstat_getargv(self.ps, self.proc, 0)
 
             if c_argv == NULL:
-                raise OSError(errno, os.strerror(errno))
+                return
 
             i = 0
             while True:
