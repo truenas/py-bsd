@@ -26,6 +26,7 @@
 #####################################################################
 
 import os
+import errno
 import shutil
 import bsd.extattr
 
@@ -44,6 +45,8 @@ def copytree(src, dst,
              xattr=False,
              xattr_filter=None,
              xattr_error_callback=None,
+             exclude=None,
+             error_cb=None
              ):
     """
     :Paramaters:
@@ -58,16 +61,30 @@ def copytree(src, dst,
         if a string, or list, indicates which namespaces to attempt to copy.
         When True, it will attempt to copy all extattr namespaces.
         Defaults to False.
-    xattr_filter (callable):  A calllable object that takes the src, namespace and name
-        (three paremeters) of the extended attribute being considered.  Return True to copy,
+    xattr_filter (callable):  A callable object that takes the src, namespace and name
+        (three parameters) of the extended attribute being considered.  Return True to copy,
         and False to skip.  Defaults to None.
-    xattr_error_callback (callable):  A callable object that takes the name of thefilesystem
+    xattr_error_callback (callable):  A callable object that takes the name of the filesystem
         object, namespace, name, and OSError exception (as four parameters) in the event
         of an error getting or setting the named EA.  Return True to ignore the error and
         continue, and False to allow it to raise the OSError exception.  Defaults to None.
             If the name of the EA argument (third argument) is None, the error occurred getting
         the list of EA names.
+    exclude (list): List of names at src path to be excluded from the copy
+    error_cb (callable): When defined, takes src, dst and reason and call callback instead of
+        raising OSError and shutil.error errors
     """
+    def call_error_cb(*args):
+        for arg in args:
+            if isinstance(arg, shutil.Error):
+                call_error_cb(*arg.args[0])
+
+            elif isinstance(arg, (tuple, list)):
+                if len(arg) == 3 and not any(isinstance(a, (tuple, list, shutil.Error)) for a in arg):
+                    error_cb(*arg)
+                else:
+                    call_error_cb(*arg)
+
     if symlinks and os.path.islink(src):
         names = [src]
         directory = False
@@ -77,9 +94,15 @@ def copytree(src, dst,
     elif os.path.isdir(src):
         directory = True
         names = os.listdir(src)
-        os.makedirs(dst)
+        try:
+            os.makedirs(dst)
+        except OSError as err:
+            if err.errno == errno.EEXIST:
+                pass
 
     errors = []
+
+    names = [name for name in names if not exclude or name not in exclude]
 
     for name in names:
         if directory:
@@ -110,7 +133,7 @@ def copytree(src, dst,
                     ea_namespaces = None
 
                 if ea_namespaces:
-                    for ns_name, ns_id in ea_namespaces.iteritems():
+                    for ns_name, ns_id in ea_namespaces.items():
                         # First, we get all the EAs
                         try:
                             ea_names = bsd.extattr.list(srcname, namespace=ns_id, follow=symlinks)
@@ -147,18 +170,28 @@ def copytree(src, dst,
                                         continue
                                 else:
                                     raise e
-                        
-                            # XXX What about devices, sockets etc.?
+
+        # XXX What about devices, sockets etc.?
         except (IOError, os.error) as why:
-            errors.append((srcname, dstname, str(why)))
+            if error_cb:
+                call_error_cb(src, dst, why)
+            else:
+                errors.append((srcname, dstname, why))
 
         # catch the Error from the recursive copytree so that we can
         # continue with other files
         except shutil.Error as err:
-            errors.extend(err.args[0])
+            if error_cb:
+                call_error_cb(src, dst, err.args[0])
+            else:
+                errors.extend(err.args[0])
     try:
         shutil.copystat(src, dst)
     except OSError as why:
-        errors.extend((src, dst, str(why)))
-    if errors:
+        if error_cb:
+            call_error_cb(src, dst, why)
+        else:
+            errors.extend((src, dst, why))
+
+    if errors and not error_cb:
         raise shutil.Error(errors)
