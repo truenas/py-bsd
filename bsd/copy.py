@@ -29,12 +29,14 @@ import os
 import shutil
 import bsd.extattr
 
+
 def count_files(directory):
     files = []
     for path, dirs, filenames in os.walk(directory):
         files.extend(filenames)
 
     return len(files)
+
 
 def copytree(src, dst,
              symlinks=False,
@@ -45,26 +47,26 @@ def copytree(src, dst,
              ):
     """
     :Paramaters:
-	src (str):  Source filesystem object to copy.
-	dst (str):  Destination for copy.
-	symlinks (bool):  If True, copy a symbolic link;
-		if False, copy what it points to.  Defaults to False.
-	progress_callback (callable):  Called with src and dst for each file
-		(not each filesystem object).  Defaults to None.
-	xattr (object):  Whether or not to copy extended attributes.
-		If a boolean, True or False indicates whether to copy;
-		if a string, or list, indicates which namespaces to attempt to copy.
-		When True, it will attempt to copy all extattr namespaces.
-		Defaults to False.
-	xattr_filter (callable):  A calllable object that takes the src, namespace and name
-		(three paremeters) of the extended attribute being considered.  Return True to copy,
-		and False to skip.  Defaults to None.
-	xattr_error_callback (callable):  A callable object that takes the name of thefilesystem
-		object, namespace, name, and OSError exception (as four parameters) in the event
-		of an error getting or setting the named EA.  Return True to ignore the error and
-		continue, and False to allow it to raise the OSError exception.  Defaults to None.
-    		If the name of the EA argument (third argument) is None, the error occurred getting
-		the list of EA names.
+    src (str):  Source filesystem object to copy.
+    dst (str):  Destination for copy.
+    symlinks (bool):  If True, copy a symbolic link;
+        if False, copy what it points to.  Defaults to False.
+    progress_callback (callable):  Called with src and dst for each file
+        (not each filesystem object).  Defaults to None.
+    xattr (object):  Whether or not to copy extended attributes.
+        If a boolean, True or False indicates whether to copy;
+        if a string, or list, indicates which namespaces to attempt to copy.
+        When True, it will attempt to copy all extattr namespaces.
+        Defaults to False.
+    xattr_filter (callable):  A calllable object that takes the src, namespace and name
+        (three paremeters) of the extended attribute being considered.  Return True to copy,
+        and False to skip.  Defaults to None.
+    xattr_error_callback (callable):  A callable object that takes the name of thefilesystem
+        object, namespace, name, and OSError exception (as four parameters) in the event
+        of an error getting or setting the named EA.  Return True to ignore the error and
+        continue, and False to allow it to raise the OSError exception.  Defaults to None.
+            If the name of the EA argument (third argument) is None, the error occurred getting
+        the list of EA names.
     """
     if symlinks and os.path.islink(src):
         names = [src]
@@ -111,7 +113,7 @@ def copytree(src, dst,
                     for ns_name, ns_id in ea_namespaces.iteritems():
                         # First, we get all the EAs
                         try:
-                            ea_names = bsd.extattr.list(srcname, namespace = ns_id, follow = symlinks)
+                            ea_names = bsd.extattr.list(srcname, namespace=ns_id, follow=symlinks)
                         except OSError as e:
                             if xattr_error_callback:
                                 if xattr_error_callback(srcname, ns_name, None, e) is False:
@@ -126,7 +128,7 @@ def copytree(src, dst,
                                 if xattr_filter(srcname, ns_name, ea) is False:
                                     continue
                             try:
-                                ea_data = bsd.extattr.get(srcname, ns_id, ea, follow = symlinks)
+                                ea_data = bsd.extattr.get(srcname, ns_id, ea, follow=symlinks)
                             except OSError as e:
                                 if xattr_error_callback:
                                     if xattr_error_callback(srcname, ns_name, None, e) is False:
@@ -136,7 +138,7 @@ def copytree(src, dst,
                                 else:
                                     raise e
                             try:
-                                bsd.extattr.set(dstname, namespace = ns_id, attr = { ea : ea_data }, follow = symlinks)
+                                bsd.extattr.set(dstname, namespace=ns_id, attr={ea: ea_data}, follow=symlinks)
                             except OSError as e:
                                 if xattr_error_callback:
                                     if xattr_error_callback(srcname, ns_name, None, e) is False:
