@@ -633,9 +633,12 @@ def nmount(**kwargs):
 
 
 def unmount(dir, flags=0):
-    cdef const char *c_dir = dir
+    cdef const char *c_dir
     cdef int c_flags = flags
     cdef int ret
+
+    b_dir = dir.encode('utf-8', 'ignore')
+    c_dir = b_dir
 
     with nogil:
         ret = defs.unmount(c_dir, c_flags)
