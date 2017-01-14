@@ -516,6 +516,7 @@ cdef extern from "sys/acl.h":
         ACL_ENTRY_DIRECTORY_INHERIT
         ACL_ENTRY_NO_PROPAGATE_INHERIT
         ACL_ENTRY_INHERIT_ONLY
+        ACL_ENTRY_INHERITED
 
     ctypedef enum acl_perm_t:
         ACL_EXECUTE
