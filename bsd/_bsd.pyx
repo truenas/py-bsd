@@ -140,7 +140,13 @@ class ProcessLookupPredicate(enum.IntEnum):
     GID = defs.KERN_PROC_GID
     INC_THREAD = defs.KERN_PROC_INC_THREAD
 
-
+class SeekConstants(enum.IntEnum):
+    SEEK_SET = defs.SEEK_SET
+    SEEK_CUR = defs.SEEK_CUR
+    SEEK_END = defs.SEEK_END
+    SEEK_HOLE = defs.SEEK_HOLE
+    SEEK_DATA = defs.SEEK_DATA
+    
 cdef class MountPoint(object):
     cdef defs.statfs* statfs
     cdef bint free

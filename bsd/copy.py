@@ -29,7 +29,7 @@ import os
 import errno
 import shutil
 import bsd.extattr
-
+from ._bsd import SeekConstants
 
 def count_files(directory):
     files = []
@@ -122,7 +122,47 @@ def copytree(src, dst,
                 if progress_callback:
                     progress_callback(srcname, dstname)
 
-                shutil.copy2(srcname, dstname)
+                with open(srcname, "rb") as infile:
+                    end_pos = os.fstat(infile.fileno()).st_size
+                    cur_pos = 0
+                    with open(dstname, "wb") as outfile:
+                        while cur_pos < end_pos:
+                            # Find the first data position.
+                            # This will raise ENXIO if there isn't one
+                            try:
+                                start_pos = os.lseek(infile.fileno(), cur_pos, SeekConstants.SEEK_DATA)
+                            except OSError as e:
+                                if e.errno == errno.ENXIO:
+                                    # Go to the end of the file, essentially
+                                    start_pos = end_pos
+                                elif e.errno == errno.ENOTTY:
+                                    # The filesystem doesn't support holes
+                                    start_pos = cur_pos
+                                else:
+                                    raise
+
+                            try:
+                                next_pos = os.lseek(infile.fileno(), start_pos, SeekConstants.SEEK_HOLE)
+                            except OSError as e:
+                                if e.errno == errno.ENXIO or e.errno == errno.ENOTTY:
+                                    # No more holes left, so next_pos = end of file
+                                    next_pos = end_pos
+                                else:
+                                    raise
+
+                            cur_pos = start_pos
+                            while cur_pos < next_pos:
+                                # Read 1mbyte at most
+                                to_read = min(next_pos - cur_pos, 1024 * 1024)
+                                os.lseek(infile.fileno(), cur_pos, SeekConstants.SEEK_SET)
+                                buffer = os.read(infile.fileno(), to_read)
+                                os.lseek(outfile.fileno(), cur_pos, SeekConstants.SEEK_SET)
+                                os.write(outfile.fileno(), buffer)
+                                cur_pos += to_read
+                
+                        os.ftruncate(outfile.fileno(), end_pos)
+                    shutil.copystat(srcname, dstname)
+                            
                 # Now for any eas!
                 if xattr is True:
                     # Copy all the EAs!
