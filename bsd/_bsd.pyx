@@ -139,6 +139,43 @@ class ProcessLookupPredicate(enum.IntEnum):
     RGID = defs.KERN_PROC_RGID
     GID = defs.KERN_PROC_GID
     INC_THREAD = defs.KERN_PROC_INC_THREAD
+    
+    
+class SyslogPriority(enum.IntEnum):
+    EMERG = defs.LOG_EMERG
+    ALERT = defs.LOG_ALERT
+    CRIT = defs.LOG_CRIT
+    ERR = defs.LOG_ERR
+    WARNING = defs.LOG_WARNING
+    NOTICE = defs.LOG_NOTICE
+    INFO = defs.LOG_INFO
+    DEBUG = defs.LOG_DEBUG
+        
+        
+class SyslogFacility(enum.IntEnum):
+    KERN = defs.LOG_KERN
+    USER = defs.LOG_USER
+    MAIL = defs.LOG_MAIL
+    DAEMON = defs.LOG_DAEMON
+    AUTH = defs.LOG_AUTH
+    SYSLOG = defs.LOG_SYSLOG
+    LPR = defs.LOG_LPR
+    NEWS = defs.LOG_NEWS
+    UUCP = defs.LOG_UUCP
+    CRON = defs.LOG_CRON
+    AUTHPRIV = defs.LOG_AUTHPRIV
+    FTP = defs.LOG_FTP
+    NTP = defs.LOG_NTP
+    SECURITY = defs.LOG_SECURITY
+    CONSOLE = defs.LOG_CONSOLE
+    LOCAL0 = defs.LOG_LOCAL0
+    LOCAL = defs.LOG_LOCAL
+    LOCAL2 = defs.LOG_LOCAL2
+    LOCAL3 = defs.LOG_LOCAL3
+    LOCAL4 = defs.LOG_LOCAL4
+    LOCAL5 = defs.LOG_LOCAL5
+    LOCAL6 = defs.LOG_LOCAL6
+    LOCAL7 = defs.LOG_LOCAL7
 
 
 cdef class MountPoint(object):
@@ -601,6 +638,7 @@ def nmount(**kwargs):
     cdef int ret
     cdef int flags
     cdef int kwargs_len
+    cdef char errmsg[255]
 
     flags = kwargs.pop('flags', 0)
 
@@ -609,7 +647,7 @@ def nmount(**kwargs):
 
     i = 0
     args = []
-    kwargs_len = len(kwargs)
+    kwargs_len = len(kwargs) + 2
 
     with nogil:
         iov = <defs.iovec*>malloc(cython.sizeof(defs.iovec) * kwargs_len * 2)
@@ -622,12 +660,20 @@ def nmount(**kwargs):
         iov[i].iov_base = <void*>(<char*>args[i])
         iov[i].iov_len = len(args[i]) + 1
 
+    i += 1
+    iov[i].iov_base = "errmsg"
+    iov[i].iov_len = len("errmsg") + 1
+    i += 1
+    iov[i].iov_base = <void *>errmsg
+    iov[i].iov_len = sizeof(errmsg)
+
     with nogil:
         ret = defs.nmount(iov, i + 1, flags)
 
     if ret != 0:
         free(iov)
-        raise OSError(errno, os.strerror(errno))
+        msg = errmsg or os.strerror(errno)
+        raise OSError(errno, msg)
 
     free(iov)
 

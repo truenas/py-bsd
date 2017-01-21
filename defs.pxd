@@ -457,13 +457,13 @@ cdef extern from "sys/linker.h":
     int kldnext(int fileid)
     int kldstat(int fileid, kld_file_stat* stat)
 
+
 cdef extern from "sys/extattr.h" nogil:
     enum:
         EXTATTR_NAMESPACE_EMPTY
         EXTATTR_NAMESPACE_USER
         EXTATTR_NAMESPACE_SYSTEM
 
-        
     char *EXTATTR_NAMESPACE_EMPTY_STRING
     char *EXTATTR_NAMESPACE_USER_STRING
     char *EXTATTR_NAMESPACE_SYSTEM_STRING
@@ -482,7 +482,8 @@ cdef extern from "sys/extattr.h" nogil:
     ssize_t extattr_set_link(const char *path, int attrnamespace, const char *attrname, void *data, size_t nbytes)
     ssize_t extattr_delete_link(const char *path, int attrnamespace, const char *attrname)
     ssize_t extattr_list_link(const char *path, int attrnamespace, void *data, size_t nbytes)
-    
+
+
 cdef extern from "sys/acl.h":
     enum:
         ACL_BRAND_UNKNOWN
@@ -617,6 +618,43 @@ cdef extern from "sys/bus.h":
         DS_ATTACHED = 30
         DS_BUSY = 40
     ctypedef device_state device_state_t
+
+
+cdef extern from "sys/syslog.h":
+    enum:
+        LOG_EMERG
+        LOG_ALERT
+        LOG_CRIT
+        LOG_ERR
+        LOG_WARNING
+        LOG_NOTICE
+        LOG_INFO
+        LOG_DEBUG
+
+    enum:
+        LOG_KERN
+        LOG_USER
+        LOG_MAIL
+        LOG_DAEMON
+        LOG_AUTH
+        LOG_SYSLOG
+        LOG_LPR
+        LOG_NEWS
+        LOG_UUCP
+        LOG_CRON
+        LOG_AUTHPRIV
+        LOG_FTP
+        LOG_NTP
+        LOG_SECURITY
+        LOG_CONSOLE
+        LOG_LOCAL0
+        LOG_LOCAL
+        LOG_LOCAL2
+        LOG_LOCAL3
+        LOG_LOCAL4
+        LOG_LOCAL5
+        LOG_LOCAL6
+        LOG_LOCAL7
 
 
 cdef extern from "devinfo.h":
