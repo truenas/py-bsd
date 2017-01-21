@@ -169,7 +169,7 @@ class SyslogFacility(enum.IntEnum):
     SECURITY = defs.LOG_SECURITY
     CONSOLE = defs.LOG_CONSOLE
     LOCAL0 = defs.LOG_LOCAL0
-    LOCAL = defs.LOG_LOCAL
+    LOCAL = defs.LOG_LOCAL1
     LOCAL2 = defs.LOG_LOCAL2
     LOCAL3 = defs.LOG_LOCAL3
     LOCAL4 = defs.LOG_LOCAL4

@@ -648,7 +648,7 @@ cdef extern from "sys/syslog.h":
         LOG_SECURITY
         LOG_CONSOLE
         LOG_LOCAL0
-        LOG_LOCAL
+        LOG_LOCAL1
         LOG_LOCAL2
         LOG_LOCAL3
         LOG_LOCAL4
