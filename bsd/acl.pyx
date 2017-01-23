@@ -431,8 +431,10 @@ cdef class ACLEntry(object):
                 defs.acl_free(<void*>acl)
                 raise OSError(errno, os.strerror(errno))
 
+            ret = result.decode('utf8').strip()
+            defs.acl_free(<void *>result)
             defs.acl_free(<void*>acl)
-            return result.decode('utf8').strip()
+            return ret
 
         def __set__(self, value):
             cdef defs.acl_t acl
