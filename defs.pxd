@@ -33,6 +33,12 @@ cdef extern from "limits.h":
         _POSIX2_LINE_MAX
 
 
+cdef extern from "stdio.h" nogil:
+    ctypedef struct FILE:
+        pass
+    cdef FILE *stdin
+    cdef FILE *stdout
+    
 cdef extern from "unistd.h" nogil:
     enum:
         SEEK_SET
@@ -819,6 +825,60 @@ cdef extern from "net/bpf.h":
     int BPF_WORDALIGN(int x)
 
 
+cdef extern from "dialog.h" nogil:
+    enum:
+        DLG_EXIT_ESC
+        DLG_EXIT_ERROR
+        DLG_EXIT_OK
+        DLG_EXIT_CANCEL
+
+    enum:
+        FLAG_CHECK
+        FLAG_RADIO
+        
+    ctypedef struct DIALOG_LISTITEM:
+        char *name
+        char *text
+        char *help
+        int state
+        
+    ctypedef struct DIALOG_FORMITEM:
+        unsigned type
+        char *name
+        char *help
+        char *text
+        int name_len, name_x, name_y
+        int text_len, text_x, text_y, text_flen, text_ilen
+        
+    ctypedef struct DIALOG_WINDOWS:
+        pass
+    ctypedef struct DIALOG_STATE:
+        FILE *input
+        FILE  *output
+        int visit_items
+        int visit_cols
+        
+    ctypedef struct DIALOG_VARS:
+        int formitem_type
+        int defaultno
+        int default_button
+        char *yes_label
+        char *no_label
+        char *ok_label
+    DIALOG_STATE dialog_state
+    DIALOG_VARS dialog_vars
+    
+    cdef void init_dialog(FILE *, FILE *)
+    cdef void end_dialog()
+    
+    cdef int dlg_form(const char *title, const char *prompt, int height, int width,
+                      int form_height, int item_no, DIALOG_FORMITEM *items,
+                      int *current_item)
+    cdef int dialog_msgbox(const char *title, const char *prompt, int height, int width, int pauseopt)
+    cdef int dlg_checklist(const char *title, const char *prompt, int height, int width,
+                           int list_height, int item_no, DIALOG_LISTITEM *items,
+                           const char *states, int flag, int *current_item)
+    cdef int dialog_yesno(const char *title, const char *prompt, int height, int width)
 cdef extern from "sys/event.h" nogil:
     enum:
         EVFILT_READ
