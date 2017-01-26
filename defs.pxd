@@ -26,19 +26,13 @@
 
 from libc.stdint cimport *
 from posix.types cimport *
-
+from libc.stdio cimport *
 
 cdef extern from "limits.h":
     enum:
         _POSIX2_LINE_MAX
 
 
-cdef extern from "stdio.h" nogil:
-    ctypedef struct FILE:
-        pass
-    cdef FILE *stdin
-    cdef FILE *stdout
-    
 cdef extern from "unistd.h" nogil:
     enum:
         SEEK_SET
