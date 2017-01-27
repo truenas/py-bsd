@@ -3,7 +3,7 @@ import types
 import enum
 
 from libc.stdlib cimport malloc, free, calloc
-from libc.string cimport memset, strdup, strlen
+from libc.string cimport memset, strdup, strlen, memcpy
 
 cimport cython
 cimport defs
@@ -27,81 +27,102 @@ class DialogEscape(DialogError):
       
 cdef UnpackFormItem(defs.DIALOG_FORMITEM *item):
       return FormItem(item.name.decode('utf-8'),
-                      value=item.text.decode('utf-8') if item.text else None,
+                      text=item.text.decode('utf-8') if item.text else None,
                       help=item.help.decode('utf-8') if item.help else None,
                       hidden=bool(item.type & DialogType.HIDDEN),
                       readonly=bool(item.type & DialogType.READONLY))
 
 cdef class FormItem(object):
+      """
+      Item for a form (this includes password forms).
+      Most of the members are fairly self-explanatory, but a note
+      needs to be made about positioning:  a FormItem can specify
+      its x and y coordinates for both the label and the field, or
+      it can leave them at none, in which case the form code will
+      attempt to figure something out.  (Each subsequent one will
+      go at a higher Y value, the X value of the form field will be
+      based on all the fields' labels, etc.)
+      N.B. Most of that is not implemented yet.
+      """
       cdef:
-            _name
-            _value
+            _label
+            _text
             _help
             _hidden
             _readonly
-            _label_x
-            _label_y
-            _text_x
-            _text_y
+            _label_pos
+            _text_pos
             _text_maximum
             
-      def __init__(self, name, value=None, help=None, hidden=False, readonly=False):
-            self.name = name
-            self.value = value
+      def __init__(self, label, text=None, help=None, hidden=False, readonly=False):
+            self.label = label
+            self.text = text
             self.help = help
             self.hidden = hidden
             self.readonly = readonly
-
+            self.label_pos = None
+            self.text_pos = None
+            
       def __str__(self):
-            return "<FormItem<name={}, value={}, help={}, hidden={}, readonly={}>".format(
-                  self.name, self.value, self.help, self.hidden, self.readonly)
+            return "<FormItem<label={}, text={}, help={}, hidden={}, readonly={}>".format(
+                  self.label, self.text, self.help, self.hidden, self.readonly)
       def __repr__(self):
-            return "FormItem({}, value={}, help={}, hidden={}, readonly={})".format(
-                  self.name, self.value, self.help, self.hidden, self.readonly)
-      @property
-      def name(self):
-            return self._name
-      @name.setter
-      def name(self, n):
-            self._name = n
+            return "FormItem({}, text={}, hidden={}, readonly={})".format(
+                  self.label, self.text, self.help, self.hidden, self.readonly)
 
-      @property
-      def value(self):
-            return self._value
-      @value.setter
-      def value(self, v):
-            self._value = v
+      property label_pos:
+          def __get__(self):
+                return self._label_pos
+          def __set__(self, p):
+                self._label_pos = p
 
-      @property
-      def help(self):
-            return self._help
-      @help.setter
-      def help(self, h):
-            self._help = h
+      property text_pos:
+          def __get__(self):
+                return self._text_pos
+          def __set__(self, p):
+                self._text_pos = p
 
-      @property
-      def hidden(self):
-            return self._hidden
+      property label:
+          def __get__(self):
+                return self._label
+          def __set__(self, n):
+                self._label = n
+                
+      property text:
+          def __get__(self):
+                return self._text
+          def __set__(self, v):
+                self._text = v
+                
+      property help:
+          def __get__(self):
+                return self._help
+          def __set__(self, v):
+                self._help = v
+                
+      property hidden:
+          def __get__(self):
+                return self._hidden
+          def __set__(self, b):
+                self._hidden = bool(b)
 
-      @hidden.setter
-      def hidden(self, v):
-            self._hidden = bool(v)
-
-      @property
-      def readonly(self):
-            return self._readonly
-
-      @readonly.setter
-      def readonly(self, v):
-            self._readonly = bool(v)
-
+      property readonly:
+          def __get__(self):
+                return self._readonly
+          def __set__(self, b):
+                self._readonly = bool(b)
+                
       cdef Pack(self, defs.DIALOG_FORMITEM *dst):
             memset(dst, 0, sizeof(defs.DIALOG_FORMITEM))
-            dst.name = strdup(self.name.encode('utf-8'))
+            dst.name = strdup(self.label.encode('utf-8'))
             dst.name_len = strlen(dst.name)
-            dst.text = strdup(self.value.encode('utf-8')) if self.value else strdup("")
+            dst.name_free = True
+            dst.text = strdup(self.text.encode('utf-8')) if self.text else strdup("")
             dst.text_len = strlen(dst.text) if dst.text else 30
+            dst.text_free = True
             dst.help = strdup(self.help.encode('utf-8')) if self.help else <char*>NULL
+            if dst.help:
+                  dst.help_free = True
             if self.hidden:
                   dst.type |= DialogType.HIDDEN
             if self.readonly:
@@ -111,12 +132,34 @@ cdef class FormItem(object):
                   dst.text_flen = 30
                   dst.text_ilen = 30
 
+"""
+cdef _save_dialog_state():
+      cdef void *vars_buffer
+      cdef void *state_buffer
+
+      vars_buffer = calloc(1, sizeof(defs.DIALOG_VARS))
+      memcpy(vars_buffer, <void*>&defs.dialog_vars, sizeof(defs.DIALOG_VARS))
+      state_buffer = calloc(1, sizeof(defs.DIALOG_STATE))
+      memcpy(state_buffer, <void*>&defs.dialog_state, sizeof(defs.DIALOG_STATE))
+      
+      return (<bytes>vars_buffer, <bytes>state_buffer)
+"""
+cdef _save_dialog_state():
+      vars_buffer = <bytes>(<char*>&defs.dialog_vars)[:sizeof(defs.DIALOG_VARS)]
+      state_buffer = <bytes>(<char*>&defs.dialog_state)[:sizeof(defs.DIALOG_STATE)]
+      return (vars_buffer, state_buffer)
+
+cdef _restore_dialog_state(state):
+      memcpy(<void*>&defs.dialog_state, <void*>(state[0]), sizeof(defs.DIALOG_STATE))
+      memcpy(<void*>&defs.dialog_vars, <void*>(state[1]), sizeof(defs.DIALOG_VARS))
+
 class Dialog(object):
       """
       Python interface to libdialog.
       Note that libdialog is AWFUL:  it relies on multiple
       global-state variables.  We try to work around that
-      as best we can.
+      as best we can.  Also, we only allow one window at
+      a time.
       """
       def __init__(self, input=sys.stdin, output=sys.stdout):
             global defs
@@ -124,8 +167,20 @@ class Dialog(object):
                   defs.dialog_state.input = defs.stdin
             if output is sys.stdout:
                   defs.dialog_state.output = defs.stdout
-                  
+            self.state_saved = False
 
+      def savestate(self):
+            if self.state_saved:
+                  return
+            self.saved_context = _save_dialog_state()
+            self.state_saved = True
+
+      def restorestate(self):
+            if self.state_saved:
+                  _restore_dialog_state(self.saved_context)
+                  self.state_saved = False
+            return
+      
       def yesno(self, title, prompt, height=10, width=None,
                 default=True, yes_label=None, no_label=None):
             """
@@ -203,11 +258,12 @@ class Dialog(object):
 
                                         
       def form(self, title, prompt, height=10, width=None,
-               form_height=None, items=None):
+               form_height=None, items=None, password=False):
             """
             Present a form.  items is an array of FormItem objects.
             Modifies the FormItem objects in place.
             Raises an exception when cancelled or if an error occurs.
+            Right now, password=True implies insecure.
             """
             if not items:
                   raise ValueError("Form items must contain values")
@@ -219,12 +275,20 @@ class Dialog(object):
             
             form_items = <defs.DIALOG_FORMITEM*>calloc(len(items) + 1, sizeof(defs.DIALOG_FORMITEM))
 
+            self.savestate()
+                  
             base_y = 1
+            # We're going to cycle through the items to find the maximum label length
+            max_label = 0
+            for fiLoopValue in items:
+                  if len(fiLoopValue.label) > max_label:
+                        max_label = len(fiLoopValue.label)
+                        
             for indx, fiLoopValue in enumerate(items):
                   fiLoopValue.Pack(&form_items[indx])
                   form_items[indx].name_y = base_y
                   form_items[indx].text_y = base_y
-                  form_items[indx].text_x = strlen(form_items[indx].name) + 3
+                  form_items[indx].text_x = max_label + 3
                   base_y  += 1
 
             if width is None:
@@ -236,21 +300,28 @@ class Dialog(object):
                   list_height = max(height - 5, 1)
 
             defs.init_dialog(defs.dialog_state.input, defs.dialog_state.output)
+            if password:
+                  defs.dialog_vars.insecure = 1
             result = defs.dlg_form(title.encode('utf-8'),
                                    prompt.encode('utf-8'),
                                    height, width, form_height,
                                    len(items),
                                    form_items, &choice)
+            defs.end_dialog()
             
+#            self.restorestate()
             for indx in range(len(items)):
                   fiLoopItem = form_items[indx]
                   items[indx] = UnpackFormItem(&form_items[indx])
                                                  
             i = 0
             while i < indx:
-                  free(form_items[i].name)
-                  free(form_items[i].text)
-                  free(form_items[i].help)
+                  if form_items[i].name_free:
+                        free(form_items[i].name)
+                  if form_items[i].text_free:
+                        free(form_items[i].text)
+                  if form_items[i].help and form_items[i].help_free:
+                        free(form_items[i].help)
                   i += 1
             free(form_items)
             return result

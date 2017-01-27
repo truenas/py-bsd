@@ -841,8 +841,9 @@ cdef extern from "dialog.h" nogil:
         char *name
         char *help
         char *text
-        int name_len, name_x, name_y
-        int text_len, text_x, text_y, text_flen, text_ilen
+        int name_len, name_x, name_y, name_free
+        int text_len, text_x, text_y, text_flen, text_ilen, text_free
+        int help_free
         
     ctypedef struct DIALOG_WINDOWS:
         pass
@@ -859,6 +860,8 @@ cdef extern from "dialog.h" nogil:
         char *yes_label
         char *no_label
         char *ok_label
+        int insecure
+
     DIALOG_STATE dialog_state
     DIALOG_VARS dialog_vars
     
