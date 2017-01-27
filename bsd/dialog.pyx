@@ -25,12 +25,134 @@ class DialogEscape(DialogError):
       def __str__(self):
             return "DialogEscape<>"
       
+class FormField(object):
+      """
+      A wrapper object for form fields:  label, value, position, etc.
+      See the properites below.
+      """
+      def __init__(self, label, value="",
+                   label_width=len(label)+1,
+                   label_position=None,
+                   value_position=None,
+                   value_width=None, maximum_input=None):
+            self.label = label
+            self.value = value
+            self.label_width = label_width
+            self.label_position = label_position
+            self.value_position = value_position
+            self.value_width = value_width
+            self.maximum_input = maximum_input
+
+      """
+      The label is presented as the name of the field.
+      It can be empty.
+      """
+      @property
+      def label(self):
+            return self._label
+      @label.setter
+      def label(self, l):
+            self._label = l
+      """
+      The value of the field.  Before being processed, it
+      shows up as the default value.  After being processed,
+      it'll be at least ''.
+      """
+      @property
+      def value(self):
+            return self._value
+      @value.setter
+      def value(self, v):
+            self._value = v
+
+      """
+      Label width is how wide on screen to use for the label.
+      If set to None, then the length of the label string will
+      be used.  Default for the constructor is to use the width
+      of the label plus one space.
+      """
+      @property
+      def label_width(self):
+            return self._l_width
+      @label_width.setter
+      def label_width(self, w):
+            self._l_width = w
+
+      """
+      The label position is where to place the label,
+      relative to the form.  Values are <x, y>; None
+      means to use a default, while <0, 0> means to use
+      those coordinates.
+      """
+      @property
+      def label_position(self):
+            return self._l_coord
+      @label_position.setter
+      def label_position(self, c):
+            self._l_coord = c
+
+      """
+      Same as above for value position.
+      In the form, if the coordinates are None, it
+      will use the length of the widest label.
+      """
+      @property
+      def value_position(self):
+            return self._v_coord
+      @value_position.setter
+      def value_position(self, c):
+            self._v_coord = c
+
+      """
+      Value width is the display width of the input field.
+      In the form, if set to None, it'll use the maximum of
+      the length of the default value or 1.  Set to 0 for
+      read-only.
+      """
+      @property
+      def value_width(self):
+            return self._v_width
+      @value_width.setter
+      def value_width(self, w):
+            self._v_width = w
+
+      """
+      Maximum input size.  If set to None or 0, the form
+      will use value_width.  Setting to larger allows for
+      an input value wider than the display width.
+      """
+      @property
+      def maximum_input(self):
+            return self._max_input
+      @maximum_input.setter
+      def maximum_input(self, m):
+            self._max_input = m
+            
 cdef UnpackFormItem(defs.DIALOG_FORMITEM *item):
       return FormItem(item.name.decode('utf-8'),
                       text=item.text.decode('utf-8') if item.text else None,
                       help=item.help.decode('utf-8') if item.help else None,
                       hidden=bool(item.type & DialogType.HIDDEN),
                       readonly=bool(item.type & DialogType.READONLY))
+
+cdef PackFormItem(item):
+      cdef defs.DIALOG_FORMITEM *c_item
+      c_item = <defs.DIALOG_FORMITEM*>calloc(1, sizeof(defs.DIALOG_FORMITEM))
+      c_item.name = strdup(item.name.encode('utf-8'))
+      c_item.name_len = strlen(c_item.name)
+      c_item.name_free = True
+
+      c_item.text = strdup(item.label.encode('utf-8'))
+      c_item.text_len = strlen(c_item.text)
+      c_item.text_free = True
+
+      if item.help:
+            c_item.help = strdup(item.help.encode('utf-8'))
+            c_item.help_free = True
+
+      retval = <bytes>(<char*>c_item)[:sizeof(defs.DIALOG_FORMITEM)]
+      free(<void*>c_item)
+      return retval
 
 cdef class FormItem(object):
       """
