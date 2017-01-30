@@ -177,7 +177,13 @@ class SyslogFacility(enum.IntEnum):
     LOCAL6 = defs.LOG_LOCAL6
     LOCAL7 = defs.LOG_LOCAL7
 
-
+class SeekConstants(enum.IntEnum):
+    SEEK_SET = defs.SEEK_SET
+    SEEK_CUR = defs.SEEK_CUR
+    SEEK_END = defs.SEEK_END
+    SEEK_HOLE = defs.SEEK_HOLE
+    SEEK_DATA = defs.SEEK_DATA
+    
 cdef class MountPoint(object):
     cdef defs.statfs* statfs
     cdef bint free

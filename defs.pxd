@@ -34,6 +34,13 @@ cdef extern from "limits.h":
 
 
 cdef extern from "unistd.h" nogil:
+    enum:
+        SEEK_SET
+        SEEK_CUR
+        SEEK_END
+        SEEK_HOLE
+        SEEK_DATA
+
     void closefrom(int lowfd)
     void setproctitle(const char *fmt, ...)
 
