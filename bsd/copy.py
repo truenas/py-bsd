@@ -125,6 +125,8 @@ def copytree(src, dst,
                 with open(srcname, "rb") as infile:
                     end_pos = os.fstat(infile.fileno()).st_size
                     cur_pos = 0
+                    if os.path.isdir(dstname):
+                        dstname = os.path.join(dstname, os.path.basename(srcname))
                     with open(dstname, "wb") as outfile:
                         while cur_pos < end_pos:
                             # Find the first data position.
@@ -214,7 +216,7 @@ def copytree(src, dst,
         # XXX What about devices, sockets etc.?
         except (IOError, os.error) as why:
             if error_cb:
-                call_error_cb(src, dst, why)
+                call_error_cb(src, dstname, why)
             else:
                 errors.append((srcname, dstname, why))
 
@@ -222,16 +224,16 @@ def copytree(src, dst,
         # continue with other files
         except shutil.Error as err:
             if error_cb:
-                call_error_cb(src, dst, err.args[0])
+                call_error_cb(src, dstname, err.args[0])
             else:
                 errors.extend(err.args[0])
     try:
-        shutil.copystat(src, dst)
+        shutil.copystat(src, dstname)
     except OSError as why:
         if error_cb:
-            call_error_cb(src, dst, why)
+            call_error_cb(src, dsnamet, why)
         else:
-            errors.extend((src, dst, why))
+            errors.extend((src, dstname, why))
 
     if errors and not error_cb:
         raise shutil.Error(errors)
