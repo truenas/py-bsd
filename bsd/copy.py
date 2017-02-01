@@ -227,13 +227,13 @@ def copytree(src, dst,
                 call_error_cb(src, dstname, err.args[0])
             else:
                 errors.extend(err.args[0])
-    try:
-        shutil.copystat(src, dstname)
-    except OSError as why:
-        if error_cb:
-            call_error_cb(src, dsnamet, why)
-        else:
-            errors.extend((src, dstname, why))
+        try:
+            shutil.copystat(src, dstname)
+        except OSError as why:
+            if error_cb:
+                call_error_cb(src, dstname, why)
+            else:
+                errors.extend((src, dstname, why))
 
     if errors and not error_cb:
         raise shutil.Error(errors)
