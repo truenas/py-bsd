@@ -231,7 +231,7 @@ def copytree(src, dst,
             shutil.copystat(src, dstname)
         except OSError as why:
             if error_cb:
-                call_error_cb(src, dsnamet, why)
+                call_error_cb(src, dstname, why)
             else:
                 errors.extend((src, dstname, why))
 
