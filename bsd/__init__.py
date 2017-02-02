@@ -43,3 +43,4 @@ from ._bsd import lchown, lchmod
 from ._bsd import getswapinfo
 from ._bsd import closefrom
 from ._bsd import setproctitle
+from ._bsd import fnmatch

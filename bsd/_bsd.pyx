@@ -183,6 +183,15 @@ class SeekConstants(enum.IntEnum):
     SEEK_END = defs.SEEK_END
     SEEK_HOLE = defs.SEEK_HOLE
     SEEK_DATA = defs.SEEK_DATA
+
+
+class FnMatchFlags(enum.IntEnum):
+    NOESCAPE = defs.FNM_NOESCAPE
+    PATHNAME = defs.FNM_PATHNAME
+    PERIOD = defs.FNM_PERIOD
+    LEADING_DIR = defs.FNM_LEADING_DIR
+    CASEFOLD = defs.FNM_CASEFOLD
+
     
 cdef class MountPoint(object):
     cdef defs.statfs* statfs
@@ -913,6 +922,14 @@ def login_tty(fd):
 def setproctitle(title):
     defs.setproctitle(title.encode('utf-8'))
 
+
+def fnmatch(pattern, string, flags=None):
+    cdef int c_flags = 0
+
+    if flags:
+        c_flags = set_to_bitmask(flags)
+
+    return not <bint>defs.fnmatch(pattern.encode('utf-8'), string.encode('utf-8'), c_flags)
 
 def bitmask_to_set(n, enumeration):
     result = set()

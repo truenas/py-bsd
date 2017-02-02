@@ -45,6 +45,20 @@ cdef extern from "unistd.h" nogil:
     void setproctitle(const char *fmt, ...)
 
 
+cdef extern from "fnmatch.h" nogil:
+    enum:
+        FNM_NOESCAPE
+        FNM_PATHNAME
+        FNM_PERIOD
+        FNM_LEADING_DIR
+        FNM_CASEFOLD
+
+    enum:
+        FNM_NOMATCH
+
+    int fnmatch(const char *pattern, const char *string, int flags)
+
+
 cdef extern from "sys/uio.h":
     cdef struct iovec:
         void* iov_base
