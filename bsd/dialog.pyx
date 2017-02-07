@@ -90,11 +90,13 @@ class FormInput(FormLabel):
                    width=None,
                    position=None,
                    maximum_input=None,
-                   readonly=False):
+                   readonly=False,
+                   hidden=False):
             super(FormInput, self).__init__(value, width=width, position=position)
             self.maximum_input = maximum_input
             self.readonly = readonly
-
+            self.hidden = hidden
+            
       def __str__(self):
             return "<FormInput(value={}, width={}, position={}, maximum_input={}, readonly={}>".format(
                   self.value, self.width, self.position, self.maximum_input, self.readonly)
@@ -127,6 +129,17 @@ class FormInput(FormLabel):
       @maximum_input.setter
       def maximum_input(self, m):
             self._max_input = m
+            
+      """
+      Hidden field or not.  Usually unused, even for password
+      forms.
+      """
+      @property
+      def hidden(self):
+            return self._hidden
+      @hidden.setter
+      def hidden(self, b):
+            self._hidden = bool(b)
             
 cdef UnpackFormItem(defs.DIALOG_FORMITEM *item):
       if False:
@@ -167,7 +180,8 @@ cdef UnpackFormItem(defs.DIALOG_FORMITEM *item):
       value = FormInput(item.text.decode('utf-8'),
                         width=item.text_flen,
                         position=pos,
-                        maximum_input=item.text_ilen)
+                        maximum_input=item.text_ilen,
+                        hidden=(item.type == 1))
 
       if False:
             with open("/tmp/form.log", "a") as f:
@@ -206,6 +220,9 @@ cdef PackFormItem(item):
             c_item.help = strdup(item.help.encode('utf-8'))
             c_item.help_free = True
 
+      if item.value.hidden:
+            c_item.type = 1
+            
       if False:
             with open("/tmp/form.log", "a") as f:
                   f.write("DIALOG_FORMITEM=<type={}, name={}, name_len={}, name_x={}, name_y={}, name_free={}, text={}, text_len={}, text_x={}, text_y={}, text_flen={}, text_ilen={}, text_free={}, help={}, help_free={}>\n".format(
@@ -371,11 +388,13 @@ cdef _save_dialog_state():
 cdef _save_dialog_state():
       vars_buffer = <bytes>(<char*>&defs.dialog_vars)[:sizeof(defs.DIALOG_VARS)]
       state_buffer = <bytes>(<char*>&defs.dialog_state)[:sizeof(defs.DIALOG_STATE)]
+      print("save:  vars_buffer = {}, state_buffer = {}".format(vars_buffer, state_buffer))
       return (vars_buffer, state_buffer)
 
 cdef _restore_dialog_state(state):
-      memcpy(<void*>&defs.dialog_state, <void*>(state[0]), sizeof(defs.DIALOG_STATE))
-      memcpy(<void*>&defs.dialog_vars, <void*>(state[1]), sizeof(defs.DIALOG_VARS))
+      print("restore:  vars_buffer = {}, state_buffer = {}".format(state[0], state[1]))
+      memcpy(<void*>&defs.dialog_vars, <void*>state[0], sizeof(defs.DIALOG_VARS))
+      memcpy(<void*>&defs.dialog_state, <void*>state[1], sizeof(defs.DIALOG_STATE))
 
 class Dialog(object):
       """
@@ -397,6 +416,7 @@ class Dialog(object):
             if self.state_saved:
                   return
             self.saved_context = _save_dialog_state()
+            print("len(saved_context) = ({}, {})".format(len(self.saved_context[0]), len(self.saved_context[1])))
             self.state_saved = True
 
       def restorestate(self):
@@ -487,7 +507,8 @@ class Dialog(object):
             Present a form.  items is an array of FormItem objects.
             Modifies the FormItem objects in place.
             Raises an exception when cancelled or if an error occurs.
-            Right now, password=True implies insecure.
+            All hidden fields are "insecure" (that is, an * for each
+            character).
             """
             if not items:
                   raise ValueError("Form items must contain values")
@@ -500,7 +521,6 @@ class Dialog(object):
             
             form_items = <defs.DIALOG_FORMITEM*>calloc(len(items) + 1, sizeof(defs.DIALOG_FORMITEM))
 
-            self.savestate()
                   
             base_y = 1
             # We're going to cycle through the items to find the maximum label length
@@ -546,9 +566,9 @@ class Dialog(object):
                                                                                                                                                 form_items[indx].name or "(null)", form_items[indx].name_len, form_items[indx].name_x, form_items[indx].name_y, form_items[indx].name_free,
                                                                                                                                                 form_items[indx].text or "(null)", form_items[indx].text_len, form_items[indx].text_x, form_items[indx].text_y, form_items[indx].text_free))
 
-            defs.init_dialog(defs.dialog_state.input, defs.dialog_state.output)
-            if password:
-                  defs.dialog_vars.insecure = 1
+            defs.init_dialog(defs.stdin, defs.stdout)
+
+            defs.dialog_vars.insecure = 1
 
             result = defs.dlg_form(title.encode('utf-8'),
                                    prompt.encode('utf-8'),
@@ -557,7 +577,6 @@ class Dialog(object):
                                    form_items, &choice)
             defs.end_dialog()
             
-            self.restorestate()
             for indx in range(len(items)):
                   items[indx] = UnpackFormItem(&form_items[indx])
                                                  
