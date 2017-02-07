@@ -818,6 +818,8 @@ cdef extern from "net/bpf.h":
 
     int BPF_WORDALIGN(int x)
 
+cdef extern from "dlg_keys.h":
+    cdef int dlg_parse_bindkey(char *binding)
 
 cdef extern from "dialog.h" nogil:
     enum:
@@ -876,6 +878,7 @@ cdef extern from "dialog.h" nogil:
                            int list_height, int item_no, DIALOG_LISTITEM *items,
                            const char *states, int flag, int *current_item)
     cdef int dialog_yesno(const char *title, const char *prompt, int height, int width)
+    
 cdef extern from "sys/event.h" nogil:
     enum:
         EVFILT_READ
