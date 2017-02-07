@@ -21,28 +21,27 @@ class DialogError(Exception):
 
 class DialogEscape(DialogError):
       def __init__(self):
-            super(DialogError, self).__init__(defs.DLG_EXIT_ESC, "Escape out of dialog")
+            super(DialogEscape, self).__init__(defs.DLG_EXIT_ESC, "Escape out of dialog")
       def __str__(self):
             return "DialogEscape<>"
       
-class FormField(object):
+class FormLabel(object):
       """
-      A wrapper object for form fields:  label, value, position, etc.
-      See the properites below.
+      A wrapper object for form labels (and base class for input).
+      This provides the name and x/y coordinates.
       """
-      def __init__(self, label, value="",
-                   label_width=len(label)+1,
-                   label_position=None,
-                   value_position=None,
-                   value_width=None, maximum_input=None):
+      def __init__(self, label, width=None, position=None):
             self.label = label
-            self.value = value
-            self.label_width = label_width
-            self.label_position = label_position
-            self.value_position = value_position
-            self.value_width = value_width
-            self.maximum_input = maximum_input
+            self.width = width if width else len(label) + 1
+            self.position = position
 
+      def __str__(self):
+            return "<FormLabel(label={}, width={}, position={})>".format(
+                  self.label, self.width, self.position)
+      def __repr__(self):
+            return "FormLabel({}, width={}, position={})".format(
+                  self.label, self.width, self.position)
+      
       """
       The label is presented as the name of the field.
       It can be empty.
@@ -54,29 +53,17 @@ class FormField(object):
       def label(self, l):
             self._label = l
       """
-      The value of the field.  Before being processed, it
-      shows up as the default value.  After being processed,
-      it'll be at least ''.
-      """
-      @property
-      def value(self):
-            return self._value
-      @value.setter
-      def value(self, v):
-            self._value = v
-
-      """
       Label width is how wide on screen to use for the label.
       If set to None, then the length of the label string will
       be used.  Default for the constructor is to use the width
       of the label plus one space.
       """
       @property
-      def label_width(self):
-            return self._l_width
-      @label_width.setter
-      def label_width(self, w):
-            self._l_width = w
+      def width(self):
+            return self._width
+      @width.setter
+      def width(self, w):
+            self._width = w
 
       """
       The label position is where to place the label,
@@ -85,36 +72,49 @@ class FormField(object):
       those coordinates.
       """
       @property
-      def label_position(self):
-            return self._l_coord
-      @label_position.setter
-      def label_position(self, c):
-            self._l_coord = c
+      def position(self):
+            return self._coord
+      @position.setter
+      def position(self, c):
+            self._coord = c
 
+      
+class FormInput(FormLabel):
       """
-      Same as above for value position.
-      In the form, if the coordinates are None, it
-      will use the length of the widest label.
+      A wrapper object for form input fields, which are a superset
+      of label fields.  (They have maximum input widths in addition
+      do display width.  Also, instead of "label" the text field is
+      called "value.")
+      """
+      def __init__(self, value="",
+                   width=None,
+                   position=None,
+                   maximum_input=None,
+                   readonly=False):
+            super(FormInput, self).__init__(value, width=width, position=position)
+            self.maximum_input = maximum_input
+            self.readonly = readonly
+
+      def __str__(self):
+            return "<FormInput(value={}, width={}, position={}, maximum_input={}, readonly={}>".format(
+                  self.value, self.width, self.position, self.maximum_input, self.readonly)
+      
+      def __repr__(self):
+            return "FormInput({}, width={}, position={}, maximum_input={}, readonly={})".format(
+                  self.value, self.width, self.position, self.maximum_input, self.readonly)
+      
+      
+      """
+      The value of the field.  Before being processed, it
+      shows up as the default value.  After being processed,
+      it'll be at least ''.
       """
       @property
-      def value_position(self):
-            return self._v_coord
-      @value_position.setter
-      def value_position(self, c):
-            self._v_coord = c
-
-      """
-      Value width is the display width of the input field.
-      In the form, if set to None, it'll use the maximum of
-      the length of the default value or 1.  Set to 0 for
-      read-only.
-      """
-      @property
-      def value_width(self):
-            return self._v_width
-      @value_width.setter
-      def value_width(self, w):
-            self._v_width = w
+      def value(self):
+            return self._label
+      @value.setter
+      def value(self, v):
+            self._label = v
 
       """
       Maximum input size.  If set to None or 0, the form
@@ -129,80 +129,160 @@ class FormField(object):
             self._max_input = m
             
 cdef UnpackFormItem(defs.DIALOG_FORMITEM *item):
-      return FormItem(item.name.decode('utf-8'),
-                      text=item.text.decode('utf-8') if item.text else None,
+      if False:
+            with open("/tmp/form.log", "a") as f:
+                  f.write("DIALOG_FORMITEM on input=<type={}, name={}, name_len={}, name_x={}, name_y={}, name_free={}, text={}, text_len={}, text_x={}, text_y={}, text_flen={}, text_ilen={}, text_free={}, help={}, help_free={}>\n".format(
+                        item.type,
+                        item.name or "(null)",
+                        item.name_len,
+                        item.name_x,
+                        item.name_y,
+                        item.name_free,
+                        item.text or "(null)",
+                        item.text_len,
+                        item.text_x,
+                        item.text_y,
+                        item.text_flen,
+                        item.text_ilen,
+                        item.text_free,
+                        item.help or "(null)",
+                        item.help_free))
+
+      pos_x = item.name_x
+      pos_y = item.name_y
+      if pos_x == 0 and pos_y == 0:
+            pos = None
+      else:
+            pos = (pos_x, pos_y)
+      label = FormLabel(item.name.decode('utf-8'),
+                        width=item.name_len,
+                        position=pos)
+      pos_x = item.text_x
+      pos_y = item.text_y
+      if pos_x == 0 and pos_y == 0:
+            pos = None
+      else:
+            pos = (pos_x, pos_y)
+            
+      value = FormInput(item.text.decode('utf-8'),
+                        width=item.text_flen,
+                        position=pos,
+                        maximum_input=item.text_ilen)
+
+      if False:
+            with open("/tmp/form.log", "a") as f:
+                  f.write("\tinput = {}\n".format(input))
+                  f.write("\tvalue = {}\n".format(value))
+
+      return FormItem(label, value=value,
                       help=item.help.decode('utf-8') if item.help else None,
                       hidden=bool(item.type & DialogType.HIDDEN),
                       readonly=bool(item.type & DialogType.READONLY))
 
 cdef PackFormItem(item):
       cdef defs.DIALOG_FORMITEM *c_item
+      print("PackFormItem({})".format(item))
       c_item = <defs.DIALOG_FORMITEM*>calloc(1, sizeof(defs.DIALOG_FORMITEM))
-      c_item.name = strdup(item.name.encode('utf-8'))
-      c_item.name_len = strlen(c_item.name)
+      c_item.name = strdup(item.label.label.encode('utf-8'))
+      c_item.name_len = item.label.width or strlen(c_item.name)
       c_item.name_free = True
-
-      c_item.text = strdup(item.label.encode('utf-8'))
-      c_item.text_len = strlen(c_item.text)
+      if item.label.position:
+            (c_item.name_x, c_item.name_y) = item.label.position
+            
+      c_item.text = strdup(item.value.value.encode('utf-8'))
       c_item.text_free = True
+      if item.value.width:
+            c_item.text_len = item.value.width
+            c_item.text_flen = item.value.width
+      elif item.value.readonly:
+            c_item.text_len = 0
+      else:
+            c_item.text_len = strlen(c_item.text)
 
+      if item.value.maximum_input:
+            c_item.text_ilen = item.value.maximum_input
+            
       if item.help:
             c_item.help = strdup(item.help.encode('utf-8'))
             c_item.help_free = True
 
+      if False:
+            with open("/tmp/form.log", "a") as f:
+                  f.write("DIALOG_FORMITEM=<type={}, name={}, name_len={}, name_x={}, name_y={}, name_free={}, text={}, text_len={}, text_x={}, text_y={}, text_flen={}, text_ilen={}, text_free={}, help={}, help_free={}>\n".format(
+                        c_item.type,
+                        c_item.name,
+                        c_item.name_len,
+                        c_item.name_x,
+                        c_item.name_y,
+                        c_item.name_free,
+                        c_item.text,
+                        c_item.text_len,
+                        c_item.text_x,
+                        c_item.text_y,
+                        c_item.text_flen,
+                        c_item.text_ilen,
+                        c_item.text_free,
+                        c_item.help or "(null)",
+                        c_item.help_free))
+      
       retval = <bytes>(<char*>c_item)[:sizeof(defs.DIALOG_FORMITEM)]
       free(<void*>c_item)
+      if False:
+            c_item = <defs.DIALOG_FORMITEM*><char*>retval
+            with open("/tmp/form.log", "a") as f:
+                  f.write("\t<type={}, name={}, name_len={}, name_x={}, name_y={}, name_free={}, text={}, text_len={}, text_x={}, text_y={}, text_flen={}, text_ilen={}, text_free={}, help={}, help_free={}>\n".format(
+                        c_item.type,
+                        c_item.name or "(null?!?!)",
+                        c_item.name_len,
+                        c_item.name_x,
+                        c_item.name_y,
+                        c_item.name_free,
+                        c_item.text or "(NULL?!?!?)",
+                        c_item.text_len,
+                        c_item.text_x,
+                        c_item.text_y,
+                        c_item.text_flen,
+                        c_item.text_ilen,
+                        c_item.text_free,
+                        c_item.help or "(null)",
+                        c_item.help_free))
       return retval
 
 cdef class FormItem(object):
       """
       Item for a form (this includes password forms).
-      Most of the members are fairly self-explanatory, but a note
-      needs to be made about positioning:  a FormItem can specify
-      its x and y coordinates for both the label and the field, or
-      it can leave them at none, in which case the form code will
-      attempt to figure something out.  (Each subsequent one will
-      go at a higher Y value, the X value of the form field will be
-      based on all the fields' labels, etc.)
-      N.B. Most of that is not implemented yet.
+      A form item consists of a label and input field (see the
+      appropriate classes above), as well as some optional
+      flag fields.
+
+      If the coordinates for the label and input fields are not
+      specified (the object returns None), then the code will
+      attempt to figure out a good location for them.  If they
+      are specified, then those values will be used.  You should
+      not mix, as the code isn't that smart:  the items are put
+      at a progressively higher location, and the X location for
+      input fields is based on the largest width of the label.
       """
       cdef:
             _label
-            _text
+            _value
             _help
             _hidden
             _readonly
-            _label_pos
-            _text_pos
-            _text_maximum
             
-      def __init__(self, label, text=None, help=None, hidden=False, readonly=False):
+      def __init__(self, label, value=None, help=None, hidden=False, readonly=False):
             self.label = label
-            self.text = text
+            self.value = value
             self.help = help
             self.hidden = hidden
             self.readonly = readonly
-            self.label_pos = None
-            self.text_pos = None
             
       def __str__(self):
-            return "<FormItem<label={}, text={}, help={}, hidden={}, readonly={}>".format(
-                  self.label, self.text, self.help, self.hidden, self.readonly)
+            return "<FormItem<label={}, value={}, help={}, hidden={}, readonly={}>".format(
+                  self.label, self.value, self.help, self.hidden, self.readonly)
       def __repr__(self):
-            return "FormItem({}, text={}, hidden={}, readonly={})".format(
-                  self.label, self.text, self.help, self.hidden, self.readonly)
-
-      property label_pos:
-          def __get__(self):
-                return self._label_pos
-          def __set__(self, p):
-                self._label_pos = p
-
-      property text_pos:
-          def __get__(self):
-                return self._text_pos
-          def __set__(self, p):
-                self._text_pos = p
+            return "FormItem({}, value={}, hidden={}, readonly={})".format(
+                  self.label, self.value, self.help, self.hidden, self.readonly)
 
       property label:
           def __get__(self):
@@ -210,11 +290,11 @@ cdef class FormItem(object):
           def __set__(self, n):
                 self._label = n
                 
-      property text:
+      property value:
           def __get__(self):
-                return self._text
+                return self._value
           def __set__(self, v):
-                self._text = v
+                self._value = v
                 
       property help:
           def __get__(self):
@@ -234,14 +314,33 @@ cdef class FormItem(object):
           def __set__(self, b):
                 self._readonly = bool(b)
                 
-      cdef Pack(self, defs.DIALOG_FORMITEM *dst):
+      def Pack(self):
+            return PackFormItem(self)
+
+      cdef Pack1(self, defs.DIALOG_FORMITEM *dst):
             memset(dst, 0, sizeof(defs.DIALOG_FORMITEM))
-            dst.name = strdup(self.label.encode('utf-8'))
+            print("self.label = {}".format(self.label))
+            dst.name = strdup(self.label.label.encode('utf-8'))
             dst.name_len = strlen(dst.name)
             dst.name_free = True
-            dst.text = strdup(self.text.encode('utf-8')) if self.text else strdup("")
+            name_coord = self.label.position
+            if name_coord is None:
+                  # The caller has to clean this up
+                  dst.name_x = 0
+                  dst.name_y = 0
+            else:
+                  (dst.name_x, dst.name_y) = name_coord
+            dst.text = strdup(self.value.value.encode('utf-8')) if self.value else strdup("")
             dst.text_len = strlen(dst.text) if dst.text else 30
             dst.text_free = True
+            text_coord = self.value.position
+            if text_coord is None:
+                  # The caller has to clean this up
+                  dst.text_x = 0
+                  dst.text_y = 0
+            else:
+                  (dst.text_x, dst.text_y) = text_coord
+                  
             dst.help = strdup(self.help.encode('utf-8')) if self.help else <char*>NULL
             if dst.help:
                   dst.help_free = True
@@ -250,9 +349,12 @@ cdef class FormItem(object):
             if self.readonly:
                   dst.type |= DialogType.READONLY
             else:
-                  # We need to change some things
-                  dst.text_flen = 30
-                  dst.text_ilen = 30
+                  if self.value.width is None:
+                        dst.text_flen = len(self.value.value) + 10
+                  if not self.value.maximum_input:
+                        dst.text_ilen = 0
+                  else:
+                        dst.text_ilen = self.value.maximum_input
 
 """
 cdef _save_dialog_state():
@@ -391,6 +493,7 @@ class Dialog(object):
                   raise ValueError("Form items must contain values")
 
             cdef defs.DIALOG_FORMITEM *form_items
+            cdef defs.DIALOG_FORMITEM *packed_item
             cdef int choice
             cdef defs.DIALOG_FORMITEM ci
             cdef FormItem fiLoopValue
@@ -403,15 +506,31 @@ class Dialog(object):
             # We're going to cycle through the items to find the maximum label length
             max_label = 0
             for fiLoopValue in items:
-                  if len(fiLoopValue.label) > max_label:
-                        max_label = len(fiLoopValue.label)
+                  if len(fiLoopValue.label.label) > max_label:
+                        max_label = len(fiLoopValue.label.label)
                         
             for indx, fiLoopValue in enumerate(items):
-                  fiLoopValue.Pack(&form_items[indx])
-                  form_items[indx].name_y = base_y
-                  form_items[indx].text_y = base_y
-                  form_items[indx].text_x = max_label + 3
-                  base_y  += 1
+                  temp_value = fiLoopValue.Pack()
+                  packed_item = <defs.DIALOG_FORMITEM*><char*>temp_value
+                  if False:
+                        print("fiLoopValue[%d] = %s" % (indx, str(fiLoopValue)))
+                        print("\tpacked_item.name: {}, len={}, free={}, pos=({}, {})".format(
+                              packed_item.name,
+                              packed_item.name_len,
+                              packed_item.name_free,
+                              packed_item.name_x,
+                              packed_item.name_y))
+                  memcpy(<void*>&form_items[indx], <void*>packed_item, sizeof(defs.DIALOG_FORMITEM))
+                  incr = 0
+                  if form_items[indx].name_y == 0:
+                        form_items[indx].name_y = base_y
+                        incr = 1
+                  if form_items[indx].text_y == 0:
+                        form_items[indx].text_y = base_y
+                        incr = 1
+                  if form_items[indx].text_x == 0:
+                        form_items[indx].text_x = max_label + 3
+                  base_y  += incr
 
             if width is None:
                   width = len(title) + 10
@@ -421,9 +540,16 @@ class Dialog(object):
             if form_height > height:
                   list_height = max(height - 5, 1)
 
+            if False:
+                  for indx in range(0, len(items)):
+                        print("form_item[%d]: name = { `%s`, len:%d, pos:(%d, %d), free:%d }, text = { `%s`, len:%d, pos:(%d, %d), free:%d}" % (indx,
+                                                                                                                                                form_items[indx].name or "(null)", form_items[indx].name_len, form_items[indx].name_x, form_items[indx].name_y, form_items[indx].name_free,
+                                                                                                                                                form_items[indx].text or "(null)", form_items[indx].text_len, form_items[indx].text_x, form_items[indx].text_y, form_items[indx].text_free))
+
             defs.init_dialog(defs.dialog_state.input, defs.dialog_state.output)
             if password:
                   defs.dialog_vars.insecure = 1
+
             result = defs.dlg_form(title.encode('utf-8'),
                                    prompt.encode('utf-8'),
                                    height, width, form_height,
@@ -431,9 +557,8 @@ class Dialog(object):
                                    form_items, &choice)
             defs.end_dialog()
             
-#            self.restorestate()
+            self.restorestate()
             for indx in range(len(items)):
-                  fiLoopItem = form_items[indx]
                   items[indx] = UnpackFormItem(&form_items[indx])
                                                  
             i = 0
