@@ -870,6 +870,9 @@ cdef extern from "dialog.h" nogil:
     cdef void init_dialog(FILE *, FILE *)
     cdef void end_dialog()
     
+    cdef void dlg_put_backtitle()
+    cdef void dlg_clear()
+    
     cdef int dlg_form(const char *title, const char *prompt, int height, int width,
                       int form_height, int item_no, DIALOG_FORMITEM *items,
                       int *current_item)

@@ -567,6 +567,7 @@ class Dialog(object):
                                                                                                                                                 form_items[indx].text or "(null)", form_items[indx].text_len, form_items[indx].text_x, form_items[indx].text_y, form_items[indx].text_free))
 
             defs.init_dialog(defs.stdin, defs.stdout)
+            defs.dlg_put_backtitle()
             defs.dlg_parse_bindkey("formfield TAB FORM_NEXT".encode('utf-8'))
             defs.dlg_parse_bindkey("formfield DOWN FORM_NEXT".encode('utf-8'))
             defs.dlg_parse_bindkey("formfield UP FORM_PREV".encode('utf-8'))
@@ -576,12 +577,14 @@ class Dialog(object):
             defs.dialog_state.visit_items = True
             defs.dialog_state.visit_cols = 1
             defs.dialog_vars.insecure = 1
-
+            defs.dialog_vars.default_button = -1
+            
             result = defs.dlg_form(title.encode('utf-8'),
                                    prompt.encode('utf-8'),
                                    height, width, form_height,
                                    len(items),
                                    form_items, &choice)
+            defs.dlg_clear()
             defs.end_dialog()
             
             for indx in range(len(items)):
