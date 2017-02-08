@@ -867,6 +867,9 @@ cdef extern from "dialog.h" nogil:
     DIALOG_STATE dialog_state
     DIALOG_VARS dialog_vars
     
+    ctypedef int (*DIALOG_INPUTMENU)(DIALOG_LISTITEM *, int, char *)
+    cdef int dlg_dummy_menutext(DIALOG_LISTITEM *, int, char*)
+    
     cdef void init_dialog(FILE *, FILE *)
     cdef void end_dialog()
     
@@ -876,12 +879,15 @@ cdef extern from "dialog.h" nogil:
     cdef int dlg_form(const char *title, const char *prompt, int height, int width,
                       int form_height, int item_no, DIALOG_FORMITEM *items,
                       int *current_item)
+    cdef int dlg_menu(const char *title, const char *prompt, int height, int width,
+                      int menu_heitht, int item_no, DIALOG_LISTITEM *items,
+                      int *current_item, DIALOG_INPUTMENU rename_menutext)
+    
     cdef int dialog_msgbox(const char *title, const char *prompt, int height, int width, int pauseopt)
     cdef int dlg_checklist(const char *title, const char *prompt, int height, int width,
                            int list_height, int item_no, DIALOG_LISTITEM *items,
                            const char *states, int flag, int *current_item)
     cdef int dialog_yesno(const char *title, const char *prompt, int height, int width)
-    
 cdef extern from "sys/event.h" nogil:
     enum:
         EVFILT_READ

@@ -501,6 +501,67 @@ class Dialog(object):
                   raise DialogError(code=result, message="Unknown return value")
 
                                         
+      def menu(self, title, prompt, height=10, width=None,
+               menu_height=None, items=None):
+            """
+            Present a menu.  items is an array of FormLabel objects.
+            Items are presented with a number for selection.
+            XXX -- See how much of this can be folded in with the checklist method
+            """
+            if not items:
+                  raise ValueError("Menu must have items to display")
+            cdef defs.DIALOG_LISTITEM *list_items
+            cdef int current_item = 0
+
+            list_items = <defs.DIALOG_LISTITEM*>calloc(len(items) + 1, sizeof(defs.DIALOG_LISTITEM))
+            if list_items == NULL:
+                  raise MemoryError("Could not allocate {} items for menu".format(len(items) + 1))
+
+            for indx, item in enumerate(items):
+                  tmp_name_str = str(indx + 1).encode('utf-8')
+                  tmp_text_str = item.label.encode('utf-8')
+                  list_items[indx].name = strdup(tmp_name_str)
+                  list_items[indx].text = strdup(tmp_text_str)
+
+            if width is None:
+                  width = len(title) + 10
+
+            if menu_height is None:
+                  menu_height = len(items)
+            if menu_height > height:
+                  menu_height = max(height - 5, 1)
+
+            defs.init_dialog(defs.dialog_state.input, defs.dialog_state.output)
+            result = defs.dlg_menu(title.encode('utf-8'),
+                                   prompt.encode('utf-8'),
+                                   height, width, menu_height,
+                                   len(items),
+                                   list_items,
+                                   &current_item,
+                                   &defs.dlg_dummy_menutext)
+            defs.dlg_clear()
+            defs.end_dialog()
+
+            i = 0
+            # current_item has the selected choice.
+            if result == defs.DLG_EXIT_OK:
+                  rv = list_items[current_item].text.decode('utf-8')
+
+            while i < len(items):
+                  free(list_items[i].name)
+                  free(list_items[i].text)
+                  free(list_items[i].help)
+                  i += 1
+            free(list_items)
+
+            if result in (defs.DLG_EXIT_OK, defs.DLG_EXIT_CANCEL):
+                  return rv
+            elif result == defs.DLG_EXIT_ESC:
+                  raise DialogEscape
+            else:
+                  raise DialogError(code=result, message="Unknown return value")
+
+
       def form(self, title, prompt, height=10, width=None,
                form_height=None, items=None, password=False):
             """
