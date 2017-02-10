@@ -78,7 +78,42 @@ class FormLabel(object):
       def position(self, c):
             self._coord = c
 
-      
+class ListItem(object):
+      """
+      A wrapper object for checklists / radio boxes.
+      Each item has a label, descriptive text, optional help,
+      and a state.
+      """
+      def __init__(self, label, text, help=None, state=False):
+            self.label = label
+            self.text = text
+            self.help = help
+            self.state = state
+      @property
+      def label(self):
+            return self._label
+      @label.setter
+      def label(self, l):
+            self._label = l
+      @property
+      def text(self):
+            return self._text
+      @text.setter
+      def text(self, t):
+            self._text = t
+      @property
+      def help(self):
+            return self._help
+      @help.setter
+      def help(self, h):
+            self._help = h
+      @property
+      def state(self):
+            return self._state
+      @state.setter
+      def state(self, b):
+            self._state = bool(b)
+            
 class FormInput(FormLabel):
       """
       A wrapper object for form input fields, which are a superset
@@ -141,6 +176,10 @@ class FormInput(FormLabel):
       def hidden(self, b):
             self._hidden = bool(b)
             
+cdef _clear_dialog_state():
+      memset(<void*>&defs.dialog_state, 0, sizeof(defs.dialog_state))
+      memset(<void*>&defs.dialog_vars, 0, sizeof(defs.dialog_vars))
+      
 cdef UnpackFormItem(defs.DIALOG_FORMITEM *item):
       if False:
             with open("/tmp/form.log", "a") as f:
@@ -404,154 +443,271 @@ class Dialog(object):
       as best we can.  Also, we only allow one window at
       a time.
       """
-      def __init__(self, input=sys.stdin, output=sys.stdout):
-            global defs
-            if input is sys.stdin:
-                  defs.dialog_state.input = defs.stdin
-            if output is sys.stdout:
-                  defs.dialog_state.output = defs.stdout
-            self.state_saved = False
+      def __init__(self, title, prompt, **kwargs):
+            self.title = title
+            self.prompt = prompt
+            self.height = kwargs.pop("height", 10)
+            self.width = kwargs.pop("width", len(self.title) + 10)
+            self._result = None
+            _clear_dialog_state()
 
-      def savestate(self):
-            if self.state_saved:
-                  return
-            self.saved_context = _save_dialog_state()
-            print("len(saved_context) = ({}, {})".format(len(self.saved_context[0]), len(self.saved_context[1])))
-            self.state_saved = True
-
-      def restorestate(self):
-            if self.state_saved:
-                  _restore_dialog_state(self.saved_context)
-                  self.state_saved = False
-            return
-      
-      def yesno(self, title, prompt, height=10, width=None,
-                default=True, yes_label=None, no_label=None):
-            """
-            Dialog window with two options (default "Yes" and "No").
-            By default, the Yes button is selected.
-            Paranters:
-            - title: str (required)
-            - prompt: str (required)
-            - height: int (defaults to 10, which is dumb)
-            - width: int or None (in which case it'll be the length of the title + 10)
-            - default: bool (which value is selected by default:  True=yes, False=no)
-            - yes_label: str
-            - no_label: str
-            Raises:
-            - DialogEscape if escape was hit
-            - DialogError for any other error from libdialog
-            Returns:
-            - boolean (True for yes-value, False for no-value)
-            """
-            if not width:
-                  width = len(title) + 10
+            # I'm not sure these make any sense
+            #defs.dialog_state.input = kwargs.pop("input", defs.stdin)
+            #defs.dialog_state.output = kwargs.pop("output", defs.stdout)
+            defs.dialog_state.input = defs.stdin
+            defs.dialog_state.output = defs.stdout
             
-            stupid_yes_temp_label = yes_label.encode("utf-8") if yes_label else None
-            defs.dialog_vars.yes_label = stupid_yes_temp_label or <char*>NULL
+            self.ok_label = kwargs.pop("ok_label", None)
+            self.no_label = kwargs.pop("no_label", None)
+            self.yes_label = kwargs.pop("yes_label", None)
+            self.cancel_label = kwargs.pop("cancel_label", None)
+            
+      def _run(self):
+            return None
+      
+      @property
+      def result(self):
+            # This SHOULD be over-ridden by subclasses
+            if self._result is None:
+                  self._result = self._run()
+            # Translate OK->True, CANCEL->False, ESC->DialogEscape, other to DialogError
+            if self._result == defs.DLG_EXIT_OK:
+                  return True
+            elif self._result == defs.DLG_EXIT_CANCEL:
+                  return False
+            elif self._result == defs.DLG_EXIT_ESC:
+                  raise DialogEscape
+            else:
+                  raise DialogError(code=self._result, message="Unknown dialog return value {}".format(self._result))
+            
+      @property
+      def title(self):
+            return self._title
+      @title.setter
+      def title(self, t):
+            self._title = t
 
-            stupid_no_temp_label = no_label.encode("utf-8") if no_label else None
-            defs.dialog_vars.no_label = stupid_no_temp_label or <char*>NULL
+      @property
+      def prompt(self):
+            return self._prompt
+      @prompt.setter
+      def prompt(self, p):
+            self._prompt = p
+            
+      @property
+      def height(self):
+            return self._height
+      @height.setter
+      def height(self, h):
+            self._height = h
+
+      @property
+      def width(self):
+            return self._width
+      @width.setter
+      def width(self, w):
+            self._width = w
+            
+      """
+      Labels:  OK, No, Yes, Cancel
+      """
+      @property
+      def ok_label(self):
+            tstr = defs.dialog_vars.ok_label
+            if tstr:
+                  return tstr.decode('utf-8')
+            else:
+                  return "OK"
+      @ok_label.setter
+      def ok_label(self, txt):
+            if txt:
+                  tmp_stupid_string = txt.encode('utf-8')
+                  defs.dialog_vars.ok_label = strdup(tmp_stupid_string)
+            else:
+                  free(defs.dialog_vars.ok_label)
+                  defs.dialog_vars.ok_label = <char*>NULL
+
+      @property
+      def no_label(self):
+            tstr = defs.dialog_vars.no_label
+            if tstr:
+                  return tstr.decode('utf-8')
+            else:
+                  return "No"
+      @no_label.setter
+      def no_label(self, txt):
+            if txt:
+                  tmp_stupid_string = txt.encode('utf-8')
+                  defs.dialog_vars.no_label = strdup(tmp_stupid_string)
+            else:
+                  free(defs.dialog_vars.no_label)
+                  defs.dialog_vars.no_label = <char*>NULL
+
+      @property
+      def yes_label(self):
+            tstr = defs.dialog_vars.yes_label
+            if tstr:
+                  return tstr.decode('utf-8')
+            else:
+                  return "Yes"
+      @yes_label.setter
+      def yes_label(self, txt):
+            if txt:
+                  tmp_stupid_string = txt.encode('utf-8')
+                  defs.dialog_vars.yes_label = strdup(tmp_stupid_string)
+            else:
+                  free(defs.dialog_vars.yes_label)
+                  defs.dialog_vars.yes_label = <char*>NULL
+
+      @property
+      def cancel_label(self):
+            tstr = defs.dialog_vars.cancel_label
+            if tstr:
+                  return tstr.decode('utf-8')
+            else:
+                  return "Cancel"
+      @cancel_label.setter
+      def cancel_label(self, txt):
+            if txt:
+                  tmp_stupid_string = txt.encode('utf-8')
+                  defs.dialog_vars.cancel_label = strdup(tmp_stupid_string)
+            else:
+                  free(defs.dialog_vars.cancel_label)
+                  defs.dialog_vars.cancel_label = <char*>NULL
                   
-            if default:
+      def clear(self):
+            defs.dlg_clear()
+            
+class YesNo(Dialog):
+      """
+      Dialog window with two options (default "Yes" and "No").
+      By default, the Yes button is selected.
+      """
+      def __init__(self, title, prompt, **kwargs):
+            super(YesNo, self).__init__(title, prompt, **kwargs)
+            self.default = kwargs.pop("default", False)
+
+      def _run(self):
+            """
+            Do all the work.
+            """
+            print("yes_label = {}, no_label = {}".format(
+                  self.yes_label, self.no_label))
+
+            if self.default:
                   defs.dialog_vars.defaultno = False
             else:
                   defs.dialog_vars.defaultno = True
                   defs.dialog_vars.default_button = defs.DLG_EXIT_CANCEL
                   
             defs.init_dialog(defs.dialog_state.input, defs.dialog_state.output)
-            rv = defs.dialog_yesno(title.encode("utf-8"), prompt.encode("utf-8"), height, width)
+            rv = defs.dialog_yesno(self.title.encode("utf-8"),
+                                   self.prompt.encode("utf-8"),
+                                   self.height, self.width)
             defs.end_dialog()
+            return rv
 
-            # Convert dialog return value to boolean
-            if rv == defs.DLG_EXIT_OK:
-                  return True
-            elif rv == defs.DLG_EXIT_CANCEL:
-                  return False
-            elif rv == defs.DLG_EXIT_ESC:
-                  raise DialogEscape
-            else:
-                  raise DialogError(code=rv, message="Unknown return value")
+      @property
+      def default(self):
+            return self._default
+      @default.setter
+      def default(self, b):
+            self._default = b
 
-      def msgbox(self, title, prompt, height=10, width=None, label=None):
+class MessageBox(Dialog):
+      def __init__(self, title, prompt, **kwargs):
             """
-            Display a message, with an OK button.  (Use label if set.)
+            Display a message, with an OK button.  (Use the label if set.)
             """
-            cdef char *old_label
+            super(MessageBox, self).__init__(title, prompt, **kwargs)
+            self.label = kwargs.pop("label", None)
 
-            old_label = defs.dialog_vars.ok_label
-            stupid_label_temp = label.encode("utf-8") if label else None
-            defs.dialog_vars.ok_label = stupid_label_temp or <char*>NULL
-            
-            if width is None:
-                  width = len(title) + 10
+      @property
+      def label(self):
+            return self._label
+      @label.setter
+      def label(self, l):
+            self._label = l
+
+      def _run(self):
+            if self.width is None:
+                  self.width = len(self.title) + 10
 
             defs.init_dialog(defs.dialog_state.input, defs.dialog_state.output)
-            result = defs.dialog_msgbox(title.encode('utf-8'),
-                                        prompt.encode('utf-8'),
-                                        height, width, 1)
+            result = defs.dialog_msgbox(self.title.encode('utf-8'),
+                                        self.prompt.encode('utf-8'),
+                                        self.height, self.width, 1)
             defs.end_dialog()
-            defs.dialog_vars.ok_label = old_label
-            
-            if result in (defs.DLG_EXIT_OK, defs.DLG_EXIT_CANCEL):
-                  pass
-            elif result == defs.DLG_EXIT_ESC:
-                  raise DialogEscape
-            else:
-                  raise DialogError(code=result, message="Unknown return value")
 
-                                        
-      def menu(self, title, prompt, height=10, width=None,
-               menu_height=None, items=None):
-            """
-            Present a menu.  items is an array of FormLabel objects.
-            Items are presented with a number for selection.
-            XXX -- See how much of this can be folded in with the checklist method
-            """
-            if not items:
+            if result in (defs.DLG_EXIT_OK, defs.DLG_EXIT_CANCEL):
+                  return defs.DLG_EXIT_OK
+            return result
+
+class Menu(Dialog):
+      def __init__(self, title, prompt, **kwargs):
+            super(Menu, self).__init__(title, prompt, **kwargs)
+            # Note that these can be set later
+            self.menu_height = kwargs.pop("menu_height", None)
+            self.menu_items = kwargs.pop("menu_items", None)
+
+      @property
+      def menu_height(self):
+            return self._menu_height
+      @menu_height.setter
+      def menu_height(self, m):
+            self._menu_height = m
+
+      @property
+      def menu_items(self):
+            return self._items
+      @menu_items.setter
+      def menu_items(self, i):
+            self._items = i
+            
+      def _run(self):
+            if not self.menu_items:
                   raise ValueError("Menu must have items to display")
             cdef defs.DIALOG_LISTITEM *list_items
             cdef int current_item = 0
 
-            list_items = <defs.DIALOG_LISTITEM*>calloc(len(items) + 1, sizeof(defs.DIALOG_LISTITEM))
+            list_items = <defs.DIALOG_LISTITEM*>calloc(len(self.menu_items) + 1, sizeof(defs.DIALOG_LISTITEM))
             if list_items == NULL:
-                  raise MemoryError("Could not allocate {} items for menu".format(len(items) + 1))
+                  raise MemoryError("Could not allocate {} items for menu".format(len(self.menu_items) + 1))
 
-            for indx, item in enumerate(items):
+            for indx, item in enumerate(self.menu_items):
                   tmp_name_str = str(indx + 1).encode('utf-8')
                   tmp_text_str = item.label.encode('utf-8')
                   list_items[indx].name = strdup(tmp_name_str)
                   list_items[indx].text = strdup(tmp_text_str)
 
-            if width is None:
-                  width = len(title) + 10
+            if self.width is None:
+                  self.width = len(self.title) + 10
 
-            if menu_height is None:
-                  menu_height = len(items)
-            if menu_height > height:
-                  menu_height = max(height - 5, 1)
+            if self.menu_height is None:
+                  self.menu_height = len(self.menu_items)
+            if self.menu_height > self.height:
+                  self.menu_height = max(self.height - 5, 1)
 
             defs.init_dialog(defs.dialog_state.input, defs.dialog_state.output)
-            result = defs.dlg_menu(title.encode('utf-8'),
-                                   prompt.encode('utf-8'),
-                                   height, width, menu_height,
-                                   len(items),
+            result = defs.dlg_menu(self.title.encode('utf-8'),
+                                   self.prompt.encode('utf-8'),
+                                   self.height, self.width, self.menu_height,
+                                   len(self.menu_items),
                                    list_items,
                                    &current_item,
                                    &defs.dlg_dummy_menutext)
-            defs.dlg_clear()
             defs.end_dialog()
 
-            i = 0
             # current_item has the selected choice.
             if result == defs.DLG_EXIT_OK:
                   rv = list_items[current_item].text.decode('utf-8')
-
-            while i < len(items):
+            else:
+                  rv = None
+                  
+            for i in range(len(self.menu_items)):
                   free(list_items[i].name)
                   free(list_items[i].text)
                   free(list_items[i].help)
-                  i += 1
             free(list_items)
 
             if result in (defs.DLG_EXIT_OK, defs.DLG_EXIT_CANCEL):
@@ -561,17 +717,129 @@ class Dialog(object):
             else:
                   raise DialogError(code=result, message="Unknown return value")
 
+      @property
+      def result(self):
+            if self._result is None:
+                  self._result = self._run()
+            return self._result
+      
+class CheckList(Dialog):
+      def __init__(self, title, prompt, **kwargs):
+            super(CheckList, self).__init__(title, prompt, **kwargs)
 
-      def form(self, title, prompt, height=10, width=None,
-               form_height=None, items=None, password=False):
-            """
-            Present a form.  items is an array of FormItem objects.
-            Modifies the FormItem objects in place.
-            Raises an exception when cancelled or if an error occurs.
-            All hidden fields are "insecure" (that is, an * for each
-            character).
-            """
-            if not items:
+            self.list_height = kwargs.pop("list_height", None)
+            self.list_items = kwargs.pop("list_items", None)
+            self._radio = False
+            
+      @property
+      def list_height(self):
+            return self._list_height
+      @list_height.setter
+      def list_height(self, h):
+            self._list_height = h
+
+      @property
+      def list_items(self):
+            return self._items
+      @list_items.setter
+      def list_items(self, l):
+            self._items = l
+            
+
+      def _run(self):
+            if not self.list_items:
+                  raise ValueError("A checklist needs item to check")
+
+            cdef defs.DIALOG_LISTITEM *list_items;
+            cdef int current_choice = 0
+
+            list_items = <defs.DIALOG_LISTITEM*>calloc(len(self.list_items) + 1, sizeof(defs.DIALOG_LISTITEM))
+
+            for indx, item in enumerate(self.list_items):
+                  tmp_name_str = (item.label if item.label else "").encode('utf-8')
+                  tmp_text_str = (item.text if item.text else "").encode('utf-8')
+                  tmp_help_str = item.help.encode('utf-8') if item.help else None
+                  list_items[indx].name = strdup(tmp_name_str) 
+                  list_items[indx].text = strdup(tmp_text_str)
+                  list_items[indx].help = strdup(tmp_help_str) if tmp_help_str else <char*>NULL
+                  list_items[indx].state = item.state
+                  
+            if self.width is None:
+                  self.width = len(self.title) + 10
+
+            if self.list_height is None:
+                  self.list_height = len(self.list_items)
+            if self.list_height > self.height:
+                  self.list_height = max(self.height - 5, 1)
+                  
+            defs.init_dialog(defs.dialog_state.input, defs.dialog_state.output)
+            result = defs.dlg_checklist(self.title.encode('utf-8'),
+                                        self.prompt.encode('utf-8'),
+                                        self.height, self.width, self.list_height,
+                                        len(self.list_items),
+                                        list_items, <char*>NULL,
+                                        defs.FLAG_RADIO if self._radio else defs.FLAG_CHECK,
+                                        &current_choice)
+            defs.end_dialog()
+
+            rv = []
+            for i in range(len(self.list_items)):
+                  if list_items[i].state:
+                        tnam = list_items[i].name
+                        ttxt = list_items[i].text
+                        thlp = list_items[i].help
+                        rv.append(ListItem(tnam.decode('utf-8') if tnam else None,
+                                           ttxt.decode('utf-8') if ttxt else None,
+                                           help=thlp.decode('utf-8') if thlp else None,
+                                           state=True))
+                  free(list_items[i].name)
+                  free(list_items[i].text)
+                  free(list_items[i].help)
+            free(list_items)
+                                                
+            if result == defs.DLG_EXIT_OK:
+                  return rv
+            elif result == defs.DLG_EXIT_CANCEL:
+                  return None
+            elif result == defs.DLG_EXIT_ESC:
+                  raise DialogEscape
+            else:
+                  raise DialogError(code=result, message="Unknown return value")
+
+      @property
+      def result(self):
+            if self._result is None:
+                  self._result = self._run()
+            return self._result
+
+class RadioList(CheckList):
+      def __init__(self, title, prompt, **kwargs):
+            super(RadioList, self).__init__(title, prompt, **kwargs)
+            self._radio = True
+            self.list_height = kwargs.pop("list_height", None)
+            self.list_items = kwargs.pop("list_items", None)
+
+class Form(Dialog):
+      def __init__(self, title, prompt, **kwargs):
+            super(Form, self).__init__(title, prompt, **kwargs)
+            self.form_height = kwargs.pop("form_height", None)
+            self.form_items = kwargs.pop("form_items", None)
+            
+      @property
+      def form_height(self):
+            return self._form_height
+      @form_height.setter
+      def form_height(self, h):
+            self._form_height = h
+      @property
+      def form_items(self):
+            return self._items
+      @form_items.setter
+      def form_items(self, f):
+            self._items = f
+
+      def _run(self):
+            if not self.form_items:
                   raise ValueError("Form items must contain values")
 
             cdef defs.DIALOG_FORMITEM *form_items
@@ -580,27 +848,18 @@ class Dialog(object):
             cdef defs.DIALOG_FORMITEM ci
             cdef FormItem fiLoopValue
             
-            form_items = <defs.DIALOG_FORMITEM*>calloc(len(items) + 1, sizeof(defs.DIALOG_FORMITEM))
-
+            form_items = <defs.DIALOG_FORMITEM*>calloc(len(self.form_items) + 1, sizeof(defs.DIALOG_FORMITEM))
                   
             base_y = 1
             # We're going to cycle through the items to find the maximum label length
             max_label = 0
-            for fiLoopValue in items:
+            for fiLoopValue in self.form_items:
                   if len(fiLoopValue.label.label) > max_label:
                         max_label = len(fiLoopValue.label.label)
                         
-            for indx, fiLoopValue in enumerate(items):
+            for indx, fiLoopValue in enumerate(self.form_items):
                   temp_value = fiLoopValue.Pack()
                   packed_item = <defs.DIALOG_FORMITEM*><char*>temp_value
-                  if False:
-                        print("fiLoopValue[%d] = %s" % (indx, str(fiLoopValue)))
-                        print("\tpacked_item.name: {}, len={}, free={}, pos=({}, {})".format(
-                              packed_item.name,
-                              packed_item.name_len,
-                              packed_item.name_free,
-                              packed_item.name_x,
-                              packed_item.name_y))
                   memcpy(<void*>&form_items[indx], <void*>packed_item, sizeof(defs.DIALOG_FORMITEM))
                   incr = 0
                   if form_items[indx].name_y == 0:
@@ -613,19 +872,13 @@ class Dialog(object):
                         form_items[indx].text_x = max_label + 3
                   base_y  += incr
 
-            if width is None:
-                  width = len(title) + 10
+            if self.width is None:
+                  self.width = len(self.title) + 10
 
-            if form_height is None:
-                  form_height = len(items)
-            if form_height > height:
-                  list_height = max(height - 5, 1)
-
-            if False:
-                  for indx in range(0, len(items)):
-                        print("form_item[%d]: name = { `%s`, len:%d, pos:(%d, %d), free:%d }, text = { `%s`, len:%d, pos:(%d, %d), free:%d}" % (indx,
-                                                                                                                                                form_items[indx].name or "(null)", form_items[indx].name_len, form_items[indx].name_x, form_items[indx].name_y, form_items[indx].name_free,
-                                                                                                                                                form_items[indx].text or "(null)", form_items[indx].text_len, form_items[indx].text_x, form_items[indx].text_y, form_items[indx].text_free))
+            if self.form_height is None:
+                  self.form_height = len(self.form_items)
+            if self.form_height > self.height:
+                  self.form_height = max(self.height - 5, 1)
 
             defs.init_dialog(defs.stdin, defs.stdout)
             defs.dlg_put_backtitle()
@@ -640,120 +893,38 @@ class Dialog(object):
             defs.dialog_vars.insecure = 1
             defs.dialog_vars.default_button = -1
             
-            result = defs.dlg_form(title.encode('utf-8'),
-                                   prompt.encode('utf-8'),
-                                   height, width, form_height,
-                                   len(items),
+            result = defs.dlg_form(self.title.encode('utf-8'),
+                                   self.prompt.encode('utf-8'),
+                                   self.height, self.width, self.form_height,
+                                   len(self.form_items),
                                    form_items, &choice)
-            defs.dlg_clear()
             defs.end_dialog()
             
-            for indx in range(len(items)):
-                  items[indx] = UnpackFormItem(&form_items[indx])
-                                                 
-            i = 0
-            while i < indx:
-                  if form_items[i].name_free:
-                        free(form_items[i].name)
-                  if form_items[i].text_free:
-                        free(form_items[i].text)
-                  if form_items[i].help and form_items[i].help_free:
-                        free(form_items[i].help)
-                  i += 1
+            rv = []
+            for indx in range(len(self.form_items)):
+                  rv.append(UnpackFormItem(&form_items[indx]))
+                  if form_items[indx].name_free:
+                        free(form_items[indx].name)
+                  if form_items[indx].text_free:
+                        free(form_items[indx].text)
+                  if form_items[indx].help and form_items[indx].help_free:
+                        free(form_items[indx].help)
+
             free(form_items)
-            return result
-      
-      def checklist(self, title, prompt,
-                    height=10, width=None,
-                    list_height=None,
-                    items=None,
-                    radio=False):
-            """
-            Create a checklist.  list_height must be less than height; it'll attempt
-            to adjust automatically if list_height is None.
-            items is a dictionary keyed by name, with { text, help, state } keys.
-            (All are str except for state, which is boolean.)  help may be None
-            If radio is true, then only one item may be selected at a time.
-            Returns a dictionary with the state=True items, keyed by name.
-            """
-            
-            if not items:
-                  raise ValueError("Check list must have items")
 
-            cdef defs.DIALOG_LISTITEM *list_items;
-            cdef int current_choice = 0
-
-            list_items = <defs.DIALOG_LISTITEM*>calloc(len(items) + 1, sizeof(defs.DIALOG_LISTITEM))
-
-            indx = 0
-            for name, values in items.items():
-                  tmp_name_str = name.encode('utf-8')
-                  if "text" in values:
-                        tmp_text_str = values["text"].encode('utf-8')
-                  else:
-                        raise ValueError("Checklist items must have a text string")
-                  if "help" in values:
-                        tmp_help_str = values["help"].encode('utf-8')
-                  else:
-                        tmp_help_str = None
-                  if "state" in values:
-                        state = bool(values["state"])
-                  else:
-                        state = False
-                  list_items[indx].name = strdup(tmp_name_str)
-                  list_items[indx].text = strdup(tmp_text_str)
-                  list_items[indx].help = strdup(tmp_help_str) if tmp_help_str else <char*>NULL
-                  list_items[indx].state = state
-                  indx += 1
-                  
-            i = 0
-            while i < indx:
-                  print("list_items[{}]: name = {}, text = {}, state = {}".format(i, list_items[i].name, list_items[i].text, bool(list_items[i].state)))
-                  i += 1
-                  
-            if width is None:
-                  width = len(title) + 10
-
-            if list_height is None:
-                  list_height = len(items)
-            if list_height > height:
-                  list_height = max(height - 5, 1)
-                  
-            defs.init_dialog(defs.dialog_state.input, defs.dialog_state.output)
-            result = defs.dlg_checklist(title.encode('utf-8'),
-                                        prompt.encode('utf-8'),
-                                        height, width, list_height,
-                                        len(items),
-                                        list_items, <char*>NULL,
-                                        defs.FLAG_RADIO if radio else defs.FLAG_CHECK,
-                                        &current_choice)
-            defs.end_dialog()
-
-            i = 0
-            rv = {}
-            while i < len(items):
-                  if list_items[i].state:
-                        tnam = list_items[i].name.decode("utf-8")
-                        
-                        rv[tnam] = {
-                              "text" : list_items[i].text.decode('utf-8'),
-                              "state" : bool(list_items[i].state)
-                              }
-                        if list_items[i].help:
-                              rv[tnam]["help"] = list_items[i].help.decode('utf-8')
-                              
-                  free(list_items[i].name)
-                  free(list_items[i].text)
-                  free(list_items[i].help)
-                  i += 1
-            free(list_items)
-                                                
-            if result in (defs.DLG_EXIT_OK, defs.DLG_EXIT_CANCEL):
-                  pass
+            if result == defs.DLG_EXIT_OK:
+                  return rv
+            elif result == defs.DLG_EXIT_CANCEL:
+                  return None
             elif result == defs.DLG_EXIT_ESC:
                   raise DialogEscape
             else:
                   raise DialogError(code=result, message="Unknown return value")
 
-            return rv
+      @property
+      def result(self):
+            if self._result is None:
+                  self._result = self._run()
+            return self._result
+      
 

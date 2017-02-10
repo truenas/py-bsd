@@ -862,6 +862,7 @@ cdef extern from "dialog.h" nogil:
         char *yes_label
         char *no_label
         char *ok_label
+        char *cancel_label
         int insecure
 
     DIALOG_STATE dialog_state
