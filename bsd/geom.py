@@ -94,6 +94,13 @@ class GEOMObject(GEOMBase):
             return None
 
     @property
+    def consumer(self):
+        try:
+            return six.next(self.consumers)
+        except StopIteration:
+            return None
+
+    @property
     def providers(self):
         for i in self.xml.findall('provider'):
             yield GEOMProvider(i)
