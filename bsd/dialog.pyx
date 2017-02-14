@@ -462,23 +462,24 @@ class Dialog(object):
             self.yes_label = kwargs.pop("yes_label", None)
             self.cancel_label = kwargs.pop("cancel_label", None)
             
-      def _run(self):
+      def run(self):
             return None
       
       @property
       def result(self):
             # This SHOULD be over-ridden by subclasses
             if self._result is None:
-                  self._result = self._run()
+                  self._result = self.run()
             # Translate OK->True, CANCEL->False, ESC->DialogEscape, other to DialogError
             if self._result == defs.DLG_EXIT_OK:
-                  return True
+                  self._result = True
             elif self._result == defs.DLG_EXIT_CANCEL:
-                  return False
+                  self._result = False
             elif self._result == defs.DLG_EXIT_ESC:
                   raise DialogEscape
             else:
                   raise DialogError(code=self._result, message="Unknown dialog return value {}".format(self._result))
+            return self._result
             
       @property
       def title(self):
@@ -587,7 +588,7 @@ class YesNo(Dialog):
             super(YesNo, self).__init__(title, prompt, **kwargs)
             self.default = kwargs.pop("default", False)
 
-      def _run(self):
+      def run(self):
             """
             Do all the work.
             """
@@ -629,7 +630,7 @@ class MessageBox(Dialog):
       def label(self, l):
             self._label = l
 
-      def _run(self):
+      def run(self):
             if self.width is None:
                   self.width = len(self.title) + 10
 
@@ -664,7 +665,7 @@ class Menu(Dialog):
       def menu_items(self, i):
             self._items = i
             
-      def _run(self):
+      def run(self):
             if not self.menu_items:
                   raise ValueError("Menu must have items to display")
             cdef defs.DIALOG_LISTITEM *list_items
@@ -710,8 +711,10 @@ class Menu(Dialog):
                   free(list_items[i].help)
             free(list_items)
 
-            if result in (defs.DLG_EXIT_OK, defs.DLG_EXIT_CANCEL):
-                  return rv
+            if result == defs.DLG_EXIT_OK:
+                  self._result = rv
+            elif result == defs.DLG_EXIT_CANCEL:
+                  self._result = None
             elif result == defs.DLG_EXIT_ESC:
                   raise DialogEscape
             else:
@@ -720,7 +723,7 @@ class Menu(Dialog):
       @property
       def result(self):
             if self._result is None:
-                  self._result = self._run()
+                  self.run()
             return self._result
       
 class CheckList(Dialog):
@@ -746,7 +749,7 @@ class CheckList(Dialog):
             self._items = l
             
 
-      def _run(self):
+      def run(self):
             if not self.list_items:
                   raise ValueError("A checklist needs item to check")
 
@@ -798,9 +801,9 @@ class CheckList(Dialog):
             free(list_items)
                                                 
             if result == defs.DLG_EXIT_OK:
-                  return rv
+                  self._result = rv
             elif result == defs.DLG_EXIT_CANCEL:
-                  return None
+                  self._result = None
             elif result == defs.DLG_EXIT_ESC:
                   raise DialogEscape
             else:
@@ -809,7 +812,7 @@ class CheckList(Dialog):
       @property
       def result(self):
             if self._result is None:
-                  self._result = self._run()
+                  self.run()
             return self._result
 
 class RadioList(CheckList):
@@ -838,7 +841,7 @@ class Form(Dialog):
       def form_items(self, f):
             self._items = f
 
-      def _run(self):
+      def run(self):
             if not self.form_items:
                   raise ValueError("Form items must contain values")
 
@@ -913,9 +916,9 @@ class Form(Dialog):
             free(form_items)
 
             if result == defs.DLG_EXIT_OK:
-                  return rv
+                  self._result = rv
             elif result == defs.DLG_EXIT_CANCEL:
-                  return None
+                  self._result = None
             elif result == defs.DLG_EXIT_ESC:
                   raise DialogEscape
             else:
@@ -924,7 +927,7 @@ class Form(Dialog):
       @property
       def result(self):
             if self._result is None:
-                  self._result = self._run()
+                  self.run()
             return self._result
       
 
