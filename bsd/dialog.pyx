@@ -622,7 +622,8 @@ class MessageBox(Dialog):
             """
             super(MessageBox, self).__init__(title, prompt, **kwargs)
             self.label = kwargs.pop("label", None)
-
+            self.wait = kwargs.pop("wait", True)
+            
       @property
       def label(self):
             return self._label
@@ -630,6 +631,13 @@ class MessageBox(Dialog):
       def label(self, l):
             self._label = l
 
+      @property
+      def wait(self):
+            return self._wait
+      @wait.setter
+      def wait(self, w):
+            self._wait = bool(w)
+            
       def run(self):
             if self.width is None:
                   self.width = len(self.title) + 10
@@ -637,7 +645,7 @@ class MessageBox(Dialog):
             defs.init_dialog(defs.dialog_state.input, defs.dialog_state.output)
             result = defs.dialog_msgbox(self.title.encode('utf-8'),
                                         self.prompt.encode('utf-8'),
-                                        self.height, self.width, 1)
+                                        self.height, self.width, self.wait)
             defs.end_dialog()
 
             if result in (defs.DLG_EXIT_OK, defs.DLG_EXIT_CANCEL):
