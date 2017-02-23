@@ -163,7 +163,6 @@ def copytree(src, dst,
                                 cur_pos += to_read
                 
                         os.ftruncate(outfile.fileno(), end_pos)
-                    shutil.copystat(srcname, dstname)
                             
                 # Now for any eas!
                 if xattr is True:
@@ -213,6 +212,15 @@ def copytree(src, dst,
                                 else:
                                     raise e
 
+            try:
+                if symlinks or not os.path.islink(srcname):
+                    shutil.copystat(srcname, dstname)
+            except OSError as why:
+                if error_cb:
+                    call_error_cb(srcname, dstname, why)
+                else:
+                    errors.extend((srcname, dstname, why))
+
         # XXX What about devices, sockets etc.?
         except (IOError, os.error) as why:
             if error_cb:
@@ -227,13 +235,6 @@ def copytree(src, dst,
                 call_error_cb(src, dstname, err.args[0])
             else:
                 errors.extend(err.args[0])
-        try:
-            shutil.copystat(src, dstname)
-        except OSError as why:
-            if error_cb:
-                call_error_cb(src, dstname, why)
-            else:
-                errors.extend((src, dstname, why))
 
     if errors and not error_cb:
         raise shutil.Error(errors)
