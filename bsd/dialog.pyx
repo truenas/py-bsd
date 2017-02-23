@@ -8,6 +8,13 @@ from libc.string cimport memset, strdup, strlen, memcpy
 cimport cython
 cimport defs
 
+cdef void *stupid_gauge
+
+def LogIt(msg):
+      with open("/tmp/dialog.log", "a") as f:
+            f.write(msg)
+            f.write("\n")
+            
 class DialogType(enum.IntEnum):
       READONLY = 2
       HIDDEN = 1
@@ -616,6 +623,7 @@ class YesNo(Dialog):
             self._default = b
 
 class MessageBox(Dialog):
+      
       def __init__(self, title, prompt, **kwargs):
             """
             Display a message, with an OK button.  (Use the label if set.)
@@ -735,6 +743,7 @@ class Menu(Dialog):
             return self._result
       
 class CheckList(Dialog):
+      
       def __init__(self, title, prompt, **kwargs):
             super(CheckList, self).__init__(title, prompt, **kwargs)
 
@@ -823,6 +832,57 @@ class CheckList(Dialog):
                   self.run()
             return self._result
 
+class Gauge(Dialog):
+      def __init__(self, title, prompt, **kwargs):
+            super(Gauge, self).__init__(title, prompt, **kwargs)
+            self._pct = kwargs.pop("percentage", 0)
+            LogIt("gauge init")
+            
+      @property
+      def percentage(self):
+            LogIt("Guage.percentage getter: {}".format(self._pct))
+            return self._pct
+      @percentage.setter
+      def percentage(self, pctg):
+            LogIt("Gauage.percentage setter({})".format(pctg))
+            try:
+                  self._pct = pctg
+            except BaseException as e:
+                  LogIt("Got an exception {} setting pct?!".format(str(e)))
+#            defs.dlg_update_gauge(<void*>self._gauge, self._pct)
+            defs.dlg_update_gauge(stupid_gauge, self._pct)
+            LogIt("\tDone updating gauge")
+            
+      def run(self):
+            """
+            Allocate the gauge.
+            Unlike the other classes, this one can't clean up until it's done.
+            """
+            global stupid_gauge
+            LogIt("In gauge run")
+            defs.init_dialog(defs.dialog_state.input, defs.dialog_state.output)
+            LogIt("Calling dlg_allocate_gauge")
+            # This is a hack as well
+            defs.dialog_state.pipe_input = defs.stdin
+            # was self._gauge
+            stupid_gauge = defs.dlg_allocate_gauge(self.title.encode('utf-8'),
+                                                   self.prompt.encode('utf-8'),
+                                                   self.height, self.width, self.percentage)
+            LogIt("\tDone (gauge = {})".format(<defs.uintptr_t>stupid_gauge))
+            defs.dlg_update_gauge(stupid_gauge, self.percentage)
+            LogIt("\tDone again")
+      @property
+      def result(self):
+            global stupid_gauge
+            LogIt("gauge.result")
+            if stupid_gauge:
+#                  defs.dlg_free_gauge(<void*>self._gauge)
+#                  self._gauge = <defs.uintptr_t>NULL
+                  defs.dlg_free_gauge(stupid_gauge)
+                  stupid_gauge = NULL
+            defs.end_dialog()
+            return defs.DLG_EXIT_OK
+      
 class RadioList(CheckList):
       def __init__(self, title, prompt, **kwargs):
             super(RadioList, self).__init__(title, prompt, **kwargs)

@@ -851,6 +851,7 @@ cdef extern from "dialog.h" nogil:
         pass
     ctypedef struct DIALOG_STATE:
         FILE *input
+        FILE *pipe_input
         FILE  *output
         int visit_items
         int visit_cols
@@ -883,6 +884,10 @@ cdef extern from "dialog.h" nogil:
     cdef int dlg_menu(const char *title, const char *prompt, int height, int width,
                       int menu_heitht, int item_no, DIALOG_LISTITEM *items,
                       int *current_item, DIALOG_INPUTMENU rename_menutext)
+    
+    cdef void *dlg_allocate_gauge(const char *title, const char *prompt, int height, int width, int pct)
+    cdef void dlg_update_gauge(void *gauge, int pct)
+    cdef void dlg_free_gauge(void *gauge)
     
     cdef int dialog_msgbox(const char *title, const char *prompt, int height, int width, int pauseopt)
     cdef int dlg_checklist(const char *title, const char *prompt, int height, int width,
