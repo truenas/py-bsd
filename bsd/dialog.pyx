@@ -854,7 +854,7 @@ class Gauge(Dialog):
             global stupid_gauge
             defs.init_dialog(defs.dialog_state.input, defs.dialog_state.output)
             # This is a hack as well
-            defs.dialog_state.pipe_input = defs.stdin
+            defs.dialog_state.pipe_input = defs.fopen("/dev/null", "r")
             # was self._gauge
             stupid_gauge = defs.dlg_allocate_gauge(self.title.encode('utf-8'),
                                                    self.prompt.encode('utf-8'),
@@ -868,6 +868,9 @@ class Gauge(Dialog):
 #                  self._gauge = <defs.uintptr_t>NULL
                   defs.dlg_free_gauge(stupid_gauge)
                   stupid_gauge = NULL
+            if defs.dialog_state.pipe_input:
+                  defs.fclose(defs.dialog_state.pipe_input)
+                  defs.dialog_state.pipe_input = NULL
             defs.end_dialog()
             return defs.DLG_EXIT_OK
       
