@@ -842,10 +842,8 @@ class Gauge(Dialog):
             return self._pct
       @percentage.setter
       def percentage(self, pctg):
-            try:
-                  self._pct = pctg
-            except BaseException as e:
-#            defs.dlg_update_gauge(<void*>self._gauge, self._pct)
+            self._pct = pctg
+            #defs.dlg_update_gauge(<void*>self._gauge, self._pct)
             defs.dlg_update_gauge(stupid_gauge, self._pct)
             
       def run(self):
