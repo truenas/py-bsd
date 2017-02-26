@@ -39,6 +39,7 @@ def count_files(directory):
     return len(files)
 
 
+# Perhaps this should move to **kwargs
 def copytree(src, dst,
              symlinks=False,
              progress_callback=None,
@@ -46,7 +47,8 @@ def copytree(src, dst,
              xattr_filter=None,
              xattr_error_callback=None,
              exclude=None,
-             error_cb=None
+             error_cb=None,
+             badfile_cb=None,
              ):
     """
     :Paramaters:
@@ -73,6 +75,10 @@ def copytree(src, dst,
     exclude (list): List of names at src path to be excluded from the copy
     error_cb (callable): When defined, takes src, dst and reason and call callback instead of
         raising OSError and shutil.error errors
+    badfile_cb (callable):  When defined, takes src, which is the path to an incompatible file.
+        (Only files, directories, and symlinks can be copied.)  Callback is expected to examine
+        the file itself, and raise an exception to indicate error, otherwise it will simply be
+        skipped. When not defined, an error will be raised.
     """
     def call_error_cb(*args):
         for arg in args:
@@ -117,7 +123,22 @@ def copytree(src, dst,
                 linkto = os.readlink(srcname)
                 os.symlink(linkto, dstname)
             elif os.path.isdir(srcname):
-                copytree(srcname, dstname, symlinks)
+                copytree(srcname, dstname, symlinks,
+                         progress_callback=progress_callback,
+                         xattr=xattr,
+                         xattr_filter=xattr_filter,
+                         xattr_error_callback=xattr_error_callback,
+                         exclude=exclude,
+                         error_cb=error_cb,
+                         badfile_cb=badfile_cb)
+            elif not os.path.islink(srcname) \
+                and not os.path.isdir(srcname) \
+                and not os.path.isfile(srcname):
+                if badfile_cb:
+                    badfile_cb(srcname)
+                    continue
+                else:
+                    raise OSError(errno.EPERM, errno.errorcode[errno.EPERM], srcname)
             else:
                 if progress_callback:
                     progress_callback(srcname, dstname)
