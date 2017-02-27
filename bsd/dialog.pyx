@@ -869,7 +869,7 @@ class Gauge(Dialog):
                   defs.dlg_free_gauge(stupid_gauge)
                   stupid_gauge = NULL
             if defs.dialog_state.pipe_input:
-                  defs.fclose(defs.dialog_state.pipe_input)
+                  #defs.fclose(defs.dialog_state.pipe_input)
                   defs.dialog_state.pipe_input = NULL
             defs.end_dialog()
             return defs.DLG_EXIT_OK
