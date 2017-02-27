@@ -545,7 +545,7 @@ cdef class Process(object):
 
     property started_at:
         def __get__(self):
-            return datetime.fromtimestamp(convert_timeval(&self.proc.ki_start))
+            return datetime.utcfromtimestamp(convert_timeval(&self.proc.ki_start))
 
     property rusage:
         def __get__(self):
