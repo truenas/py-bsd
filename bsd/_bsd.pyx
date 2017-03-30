@@ -572,7 +572,7 @@ cdef class Process(object):
                 fs_list = defs.procstat_getfiles(self.ps, self.proc, 0)
 
             if fs_list == <defs.filestat_list *>NULL:
-                raise OSError(errno, os.strerror(errno))
+                return
 
             fs = fs_list.stqh_first
             while fs != NULL:
