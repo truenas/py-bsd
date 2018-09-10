@@ -1023,3 +1023,8 @@ cdef extern from "sys/event.h" nogil:
     int kqueue()
     int kevent(int kq, const kevent_s *changelist, int nchanges, kevent_s *eventlist, int nevents, timespec *timeout)
     void EV_SET(kevent_s *kev, uintptr_t ident, short filter, u_short flags, u_int fflags, intptr_t data, void *udata)
+
+
+cdef extern from "<sys/thr.h>":
+    int thr_self(long *id)
+    int thr_set_name(long id, const char *name)
