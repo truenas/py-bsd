@@ -459,6 +459,30 @@ cdef class Process(object):
             'files': [i.__getstate__() for i in self.files]
         }
 
+    property threads:
+        def __get__(self):
+            threads = []
+            cdef:
+                unsigned int count, i
+                cdef defs.kinfo_proc *kip, *kipp
+            with nogil:
+                kip = defs.procstat_getprocs(
+                    self.ps, defs.KERN_PROC_PID | defs.KERN_PROC_INC_THREAD, self.proc.ki_pid, &count
+                )
+            if kip == NULL:
+                raise Exception('Could not retrieve thread stats')
+
+            i = 0
+            while i < count:
+                thread = {}
+                kipp = &kip[i]
+                thread['id'] = kipp.ki_tid
+                thread['cmd'] = kipp.ki_comm
+                thread['name'] = kipp.ki_tdname + kipp.ki_moretdname
+                threads.append(thread)
+                i += 1
+            return threads
+
     property pid:
         def __get__(self):
             return self.proc.ki_pid
