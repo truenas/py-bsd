@@ -69,6 +69,7 @@ cdef extern from "sys/param.h":
     enum:
         MAXPATHLEN
         SPECNAMELEN
+        MAXCOMLEN
 
 
 cdef extern from "sys/types.h":
@@ -285,6 +286,7 @@ cdef extern from "sys/user.h":
         u_char	ki_oncpu
         u_char	ki_lastcpu
         char	ki_tdname[TDNAMLEN+1]
+        char	ki_moretdname[MAXCOMLEN-TDNAMLEN+1]
         char	ki_wmesg[WMESGLEN+1]
         char	ki_login[LOGNAMELEN+1]
         char	ki_lockname[LOCKNAMELEN+1]
@@ -1023,3 +1025,8 @@ cdef extern from "sys/event.h" nogil:
     int kqueue()
     int kevent(int kq, const kevent_s *changelist, int nchanges, kevent_s *eventlist, int nevents, timespec *timeout)
     void EV_SET(kevent_s *kev, uintptr_t ident, short filter, u_short flags, u_int fflags, intptr_t data, void *udata)
+
+
+cdef extern from "<sys/thr.h>" nogil:
+    int thr_self(long *id)
+    int thr_set_name(long id, const char *name)

@@ -427,9 +427,6 @@ cdef class OpenSocket(OpenFile):
 
 
 cdef class Process(object):
-    cdef defs.kinfo_proc* proc
-    cdef defs.procstat* ps
-    cdef bint free
 
     def __cinit__(self):
         self.free = False
@@ -458,6 +455,30 @@ cdef class Process(object):
             'started_at': self.started_at,
             'files': [i.__getstate__() for i in self.files]
         }
+
+    property threads:
+        def __get__(self):
+            threads = []
+            cdef:
+                unsigned int count, i
+                cdef defs.kinfo_proc *kip, *kipp
+            with nogil:
+                kip = defs.procstat_getprocs(
+                    self.ps, defs.KERN_PROC_PID | defs.KERN_PROC_INC_THREAD, self.proc.ki_pid, &count
+                )
+            if kip == NULL:
+                raise Exception('Could not retrieve thread stats')
+
+            i = 0
+            while i < count:
+                kipp = &kip[i]
+                threads.append({
+                    'id': kipp.ki_tid,
+                    'cmd': kipp.ki_comm,
+                    'name': kipp.ki_tdname + kipp.ki_moretdname
+                })
+                i += 1
+            return threads
 
     property pid:
         def __get__(self):
@@ -708,7 +729,7 @@ def unmount(dir, flags=0):
         raise OSError(errno, os.strerror(errno))
 
 
-def kinfo_getproc(pid):
+cpdef kinfo_getproc(pid):
     cdef Process ret
     cdef defs.kinfo_proc* proc
     cdef defs.procstat *ps

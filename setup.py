@@ -34,15 +34,60 @@ import six
 
 
 extensions = [
-    Extension("bsd._bsd", ["bsd/_bsd.pyx"], extra_compile_args=["-g", "-O0"], extra_link_args=["-lutil", "-lprocstat"]),
-    Extension("bsd.sysctl", ["bsd/sysctl.pyx"], extra_compile_args=["-g", "-O0"]),
-    Extension("bsd.dialog", ["bsd/dialog.pyx"], extra_compile_args=["-g", "-O0"], extra_link_args=["-ldialog"]),
-    Extension("bsd.kld", ["bsd/kld.pyx"], extra_compile_args=["-g", "-O0"]),
-    Extension("bsd.acl", ["bsd/acl.pyx"], extra_compile_args=["-g", "-O0"]),
-    Extension("bsd.extattr", ["bsd/extattr.pyx"], extra_compile_args=["-g", "-O0"], cython_compile_time_env={'PY2': six.PY2}),
-    Extension("bsd.devinfo", ["bsd/devinfo.pyx"], extra_compile_args=["-g", "-O0"], extra_link_args=["-ldevinfo"]),
-    Extension("bsd.bpf", ["bsd/bpf.pyx"], extra_compile_args=["-g", "-O0"]),
-    Extension("bsd.nis", ["bsd/nis.pyx", "bsd/yp_client.c"], extra_compile_args=["-g", "-O0"], extra_link_args=["-g", "-O0", "-lypclnt"]),
+    Extension(
+        "bsd._bsd",
+        ["bsd/_bsd.pyx"],
+        extra_compile_args=["-g", "-O0"],
+        extra_link_args=["-lutil", "-lprocstat"]
+    ),
+    Extension(
+        "bsd.sysctl",
+        ["bsd/sysctl.pyx"],
+        extra_compile_args=["-g", "-O0"]
+    ),
+    Extension(
+        "bsd.dialog",
+        ["bsd/dialog.pyx"],
+        extra_compile_args=["-g", "-O0"],
+        extra_link_args=["-ldialog"]
+    ),
+    Extension(
+        "bsd.kld",
+        ["bsd/kld.pyx"],
+        extra_compile_args=["-g", "-O0"]
+    ),
+    Extension(
+        "bsd.acl",
+        ["bsd/acl.pyx"],
+        extra_compile_args=["-g", "-O0"]
+    ),
+    Extension(
+        "bsd.extattr",
+        ["bsd/extattr.pyx"],
+        extra_compile_args=["-g", "-O0"],
+        cython_compile_time_env={'PY2': six.PY2}
+    ),
+    Extension(
+        "bsd.devinfo",
+        ["bsd/devinfo.pyx"],
+        extra_compile_args=["-g", "-O0"],
+        extra_link_args=["-ldevinfo"]
+    ),
+    Extension(
+        "bsd.bpf",
+        ["bsd/bpf.pyx"],
+        extra_compile_args=["-g", "-O0"]
+    ),
+    Extension(
+        "bsd.nis",
+        ["bsd/nis.pyx", "bsd/yp_client.c"],
+        extra_compile_args=["-g", "-O0"],
+        extra_link_args=["-g", "-O0", "-lypclnt"]
+    ),
+    Extension(
+        "bsd.threading",
+        ["bsd/threading.pyx"],
+    ),
 ]
 
 
@@ -50,7 +95,7 @@ setup(
     name='bsd',
     version='1.0',
     packages=['bsd'],
-    package_dir={'bsd' : 'bsd'},
+    package_dir={'bsd': 'bsd'},
     package_data={'bsd': ['*.html', '*.c']},
     cmdclass={'build_ext': build_ext},
     ext_modules=extensions,
