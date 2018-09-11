@@ -427,9 +427,6 @@ cdef class OpenSocket(OpenFile):
 
 
 cdef class Process(object):
-    cdef defs.kinfo_proc* proc
-    cdef defs.procstat* ps
-    cdef bint free
 
     def __cinit__(self):
         self.free = False
@@ -474,12 +471,12 @@ cdef class Process(object):
 
             i = 0
             while i < count:
-                thread = {}
                 kipp = &kip[i]
-                thread['id'] = kipp.ki_tid
-                thread['cmd'] = kipp.ki_comm
-                thread['name'] = kipp.ki_tdname + kipp.ki_moretdname
-                threads.append(thread)
+                threads.append({
+                    'id': kipp.ki_tid,
+                    'cmd': kipp.ki_comm,
+                    'name': kipp.ki_tdname + kipp.ki_moretdname
+                })
                 i += 1
             return threads
 
@@ -732,7 +729,7 @@ def unmount(dir, flags=0):
         raise OSError(errno, os.strerror(errno))
 
 
-def kinfo_getproc(pid):
+cpdef kinfo_getproc(pid):
     cdef Process ret
     cdef defs.kinfo_proc* proc
     cdef defs.procstat *ps

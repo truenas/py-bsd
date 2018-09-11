@@ -1,3 +1,4 @@
+cimport _bsd
 cimport defs
 
 from libc.errno cimport errno
@@ -27,8 +28,8 @@ def set_thread_name(str name):
 
 
 def get_thread_name():
-    #pid = os.getpid()
-    #cdef long tid = __get_thread_id()
-    #cdef _bsd.Process ps = _bsd.kinfo_getproc(pid)
-    #return [v for v in ps.threads if v['id'] == tid][0]['name']
-    pass
+    pid = os.getpid()
+    cdef long tid = __get_thread_id()
+    return list(
+        filter(lambda thread: thread['id'] == tid, _bsd.kinfo_getproc(pid).threads)
+    )[0]['name']
