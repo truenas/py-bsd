@@ -559,6 +559,7 @@ cdef extern from "sys/acl.h":
         ACL_DELETE
         ACL_READ_ACL
         ACL_WRITE_ACL
+        ACL_WRITE_OWNER
         ACL_SYNCHRONIZE
 
     ctypedef struct acl_t:
