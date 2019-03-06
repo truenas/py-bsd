@@ -83,6 +83,7 @@ class NFS4Perm(enum.IntEnum):
     DELETE = defs.ACL_DELETE
     READ_ACL = defs.ACL_READ_ACL
     WRITE_ACL = defs.ACL_WRITE_ACL
+    WRITE_OWNER = defs.ACL_WRITE_OWNER
     SYNCHRONIZE = defs.ACL_SYNCHRONIZE
 
 
