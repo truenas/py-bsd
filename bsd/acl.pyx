@@ -259,7 +259,6 @@ cdef class ACLEntry(object):
         return {
             'tag': self.tag.name,
             'id': self.id,
-            'name': self.name,
             'type': self.type.name,
             'perms': {k.name: v for k, v in self.perms.items()},
             'flags': {k.name: v for k, v in self.flags.items()},
@@ -267,25 +266,23 @@ cdef class ACLEntry(object):
         }
 
     def __setstate__(self, obj):
-        if 'text' in obj:
+        if 'text' in obj and obj['text'] is not None:
             self.text = obj['text']
 
-        if 'id' in obj:
-            self.id = obj['id']
+        if 'tag' in obj:
+            self.tag = obj['tag']
 
-        if 'name' in obj:
-            self.name = obj['name']
+        if 'id' in obj and obj['id'] is not None:
+            self.id = obj['id']
 
         if 'type' in obj:
             self.type = obj['type']
 
         if 'perms' in obj:
-            for k, v in obj['perms']:
-                self.perms[k] = v
+            self.perms = obj['perms']
 
         if 'flags' in obj:
-            for k, v in obj['flags']:
-                self.flags[k] = v
+            self.flags = obj['flags']
 
 
     def delete(self):
@@ -304,7 +301,7 @@ cdef class ACLEntry(object):
         def __set__(self, value):
             cdef defs.acl_tag_t tag
 
-            tag = value.value
+            tag = ACLEntryTag[value]
             if defs.acl_set_tag_type(self.entry, tag) != 0:
                 raise OSError(errno, os.strerror(errno))
 
@@ -330,32 +327,6 @@ cdef class ACLEntry(object):
             if defs.acl_set_qualifier(self.entry, &qualifier) != 0:
                 raise OSError(errno, os.strerror(errno))
 
-    property name:
-        def __get__(self):
-            try:
-                if self.tag == ACLEntryTag.USER:
-                    return pwd.getpwuid(self.id).pw_name
-
-                if self.tag == ACLEntryTag.GROUP:
-                    return grp.getgrgid(self.id).gr_name
-            except KeyError:
-                return None
-
-            return None
-
-        def __set__(self, value):
-            if self.tag == ACLEntryTag.USER:
-                uid = pwd.getpwnam(value.encode('utf8')).pw_uid
-                self.id = uid
-                return
-
-            if self.tag == ACLEntryTag.GROUP:
-                gid = pwd.getpwnam(value.encode('utf8')).pw_gid
-                self.id = gid
-                return
-
-            raise ValueError('Cannot set name on ACL of that type')
-
     property perms:
         def __get__(self):
             cdef ACLPermissionSet result
@@ -377,8 +348,17 @@ cdef class ACLEntry(object):
 
             return result
 
-        def __set__(self, ACLPermissionSet value):
-            pass
+        def __set__(self, value):
+            cdef defs.acl_perm_t perm
+            cdef defs.acl_permset_t permset
+            if defs.acl_get_permset(self.entry, &permset) != 0:
+                raise OSError(errno, os.strerror(errno))
+
+            for k, v in value.items():
+                if v:
+                    perm = NFS4Perm[k]
+                    if defs.acl_add_perm(permset, perm) != 0:
+                        raise OSError(errno, os.strerror(errno))
 
     property flags:
         def __get__(self):
@@ -393,8 +373,17 @@ cdef class ACLEntry(object):
             result.parent = self
             return result
 
-        def __set__(self, ACLFlagSet value):
-            pass
+        def __set__(self, value):
+            cdef defs.acl_flag_t flag 
+            cdef defs.acl_flagset_t flagset
+            if defs.acl_get_flagset_np(self.entry, &flagset) != 0:
+                raise OSError(errno, os.strerror(errno))
+
+            for k, v in value.items():
+                if v:
+                    flag = NFS4Flag[k]
+                    if defs.acl_add_flag_np(flagset, flag) != 0:
+                        raise OSError(errno, os.strerror(errno))
 
     property type:
         def __get__(self):
@@ -406,7 +395,14 @@ cdef class ACLEntry(object):
             return ACLEntryType(typ)
 
         def __set__(self, value):
-            pass
+            cdef int acl_type
+            if ACLEntryType[value] not in (ACLEntryType.ALLOW, ACLEntryType.DENY):
+                raise ValueError('Unsupported ACL type.')
+     
+            acl_type = ACLEntryType[value]
+             
+            if defs.acl_set_entry_type_np(self.entry, acl_type) != 0:
+                raise OSError(errno, os.strerror(errno))
 
     property text:
         def __get__(self):
