@@ -226,17 +226,6 @@ cdef class ACL(object):
 
             return result
 
-    property text:
-        def __get__(self):
-            cdef char *text = defs.acl_to_text(self.acl, NULL)
-
-            ret = text.decode('utf8')
-            defs.acl_free(<void *>text)
-            return ret
-
-        def __set__(self, text):
-            self.acl = defs.acl_from_text(text)
-
     property valid:
         def __get__(self):
             if defs.acl_valid(self.acl) != 0:
@@ -262,13 +251,9 @@ cdef class ACLEntry(object):
             'type': self.type.name,
             'perms': {k.name: v for k, v in self.perms.items()},
             'flags': {k.name: v for k, v in self.flags.items()},
-            'text': self.text
         }
 
     def __setstate__(self, obj):
-        if 'text' in obj and obj['text'] is not None:
-            self.text = obj['text']
-
         if 'tag' in obj:
             self.tag = obj['tag']
 
@@ -403,59 +388,6 @@ cdef class ACLEntry(object):
              
             if defs.acl_set_entry_type_np(self.entry, acl_type) != 0:
                 raise OSError(errno, os.strerror(errno))
-
-    property text:
-        def __get__(self):
-            cdef defs.acl_t acl
-            cdef defs.acl_entry_t entry
-            cdef char* result
-
-            acl = defs.acl_init(0)
-
-            if <void*>acl == NULL:
-                raise OSError(errno, os.strerror(errno))
-
-            if defs.acl_create_entry(&acl, &entry) != 0:
-                defs.acl_free(<void*>acl)
-                raise OSError(errno, os.strerror(errno))
-
-            if defs.acl_copy_entry(entry, self.entry) != 0:
-                defs.acl_free(<void*>acl)
-                raise OSError(errno, os.strerror(errno))
-
-            result = defs.acl_to_text(acl, NULL)
-            if result == NULL:
-                defs.acl_free(<void*>acl)
-                raise OSError(errno, os.strerror(errno))
-
-            ret = result.decode('utf8').strip()
-            defs.acl_free(<void *>result)
-            defs.acl_free(<void*>acl)
-            return ret
-
-        def __set__(self, value):
-            cdef defs.acl_t acl
-            cdef defs.acl_entry_t entry
-            cdef int brand
-
-            acl = defs.acl_from_text(value.encode('utf8'))
-
-            if <void*>acl == NULL:
-                raise OSError(errno, os.strerror(errno))
-
-            if defs.acl_get_entry(acl, defs.ACL_FIRST_ENTRY, &entry) == -1:
-                defs.acl_free(<void*>acl)
-                raise OSError(errno, os.strerror(errno))
-
-            if defs.acl_get_brand_np(acl, &brand) != 0:
-                defs.acl_free(<void*>acl)
-                raise OSError(errno, os.strerror(errno))
-
-            if defs.acl_copy_entry(self.entry, entry) != 0:
-                defs.acl_free(<void*>acl)
-                raise OSError(errno, os.strerror(errno))
-
-            defs.acl_free(<void*>acl)
 
 
 cdef class ACLPermissionSet(object):
