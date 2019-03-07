@@ -507,7 +507,7 @@ cdef extern from "sys/extattr.h" nogil:
     ssize_t extattr_list_link(const char *path, int attrnamespace, void *data, size_t nbytes)
 
 
-cdef extern from "sys/acl.h":
+cdef extern from "sys/acl.h" nogil:
     enum:
         ACL_BRAND_UNKNOWN
         ACL_BRAND_POSIX
