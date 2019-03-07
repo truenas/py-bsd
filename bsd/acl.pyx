@@ -100,7 +100,7 @@ cdef class ACL(object):
     cdef readonly fobj
     cdef readonly type
     cdef object _link
-    
+
     def __init__(self, file=None, acltype=ACLType.NFS4, follow_links=False):
         """
         :file: use acl_get_* syscalls, which returns a pointer to the ACL that was retrieved
@@ -114,7 +114,7 @@ cdef class ACL(object):
         self._link = follow_links
         cdef defs.acl_type_t aclt
         cdef char *fn
-        cdef int fd 
+        cdef int fd
         aclt = acltype
 
         if file:
@@ -141,7 +141,7 @@ cdef class ACL(object):
             else:
                 raise ValueError("Invalid type for path")
 
-            if self.acl is None: 
+            if self.acl is None:
                 raise OSError(errno, os.strerror(errno))
 
             return
@@ -196,7 +196,7 @@ cdef class ACL(object):
                 rv = defs.acl_set_fd_np(fd, newacl, aclt)
         else:
             raise ValueError("Invalid type for file parameter")
-        
+
         if rv != 0:
             raise OSError(errno, os.strerror(errno))
 
@@ -282,10 +282,10 @@ cdef class ACL(object):
                 fn = self.fobj
                 if self._link:
                     with nogil:
-                        ret = defs.acl_valid_link_np(fn, aclt, self.acl) 
+                        ret = defs.acl_valid_link_np(fn, aclt, self.acl)
                 else:
                     with nogil:
-                        ret = defs.acl_valid_file_np(fn, aclt, self.acl) 
+                        ret = defs.acl_valid_file_np(fn, aclt, self.acl)
             elif type(self.fobj) is type(ref_file):
                 fd = self.fobj.fileno()
                 with nogil:
@@ -337,7 +337,6 @@ cdef class ACLEntry(object):
 
         if 'flags' in obj:
             self.flags = obj['flags']
-
 
     def delete(self):
         cdef int ret
@@ -454,7 +453,7 @@ cdef class ACLEntry(object):
 
         def __set__(self, value):
             cdef int rv
-            cdef defs.acl_flag_t flag 
+            cdef defs.acl_flag_t flag
             cdef defs.acl_flagset_t flagset
             with nogil:
                 rv = defs.acl_get_flagset_np(self.entry, &flagset)
@@ -486,9 +485,9 @@ cdef class ACLEntry(object):
             cdef int acl_type
             if ACLEntryType[value] not in (ACLEntryType.ALLOW, ACLEntryType.DENY):
                 raise ValueError('Unsupported ACL type.')
-     
+
             acl_type = ACLEntryType[value]
-             
+
             with nogil:
                 rv = defs.acl_set_entry_type_np(self.entry, acl_type)
             if rv != 0:
@@ -567,7 +566,7 @@ cdef class ACLFlagSet(object):
     cdef int rv
 
     def __getitem__(self, item):
-        cdef defs.acl_flag_t flag 
+        cdef defs.acl_flag_t flag
         if isinstance(item, str):
             item = getattr(NFS4Flag, item)
 
@@ -579,11 +578,11 @@ cdef class ACLFlagSet(object):
             rv = defs.acl_get_flag_np(self.flagset, flag)
         if rv == -1:
             raise OSError(errno, os.strerror(errno))
-            
+
         return <bint>rv
 
     def __setitem__(self, key, value):
-        cdef defs.acl_flag_t flag 
+        cdef defs.acl_flag_t flag
         if isinstance(key, str):
             key = getattr(NFS4Flag, key)
 
@@ -596,7 +595,7 @@ cdef class ACLFlagSet(object):
                 rv = defs.acl_add_flag_np(self.flagset, flag)
             if rv != 0:
                 raise OSError(errno, os.strerror(errno))
-            
+
             return
 
         if value is False:
