@@ -100,36 +100,50 @@ cdef class ACL(object):
     cdef readonly fobj
     cdef readonly type
     cdef object _link
-    
-    def __init__(self, file=None, text=None, acltype=ACLType.NFS4, follow_links=False):
+
+    def __init__(self, file=None, acltype=ACLType.NFS4, follow_links=False):
+        """
+        :file: use acl_get_* syscalls, which returns a pointer to the ACL that was retrieved
+        On failure, a value of (acl_t)NULL is returned, and errno set to indicate error.
+
+        If file not set, then call acl_init() to allocate and initialize an ACL.
+        In all cases this will allocate memory, which must be freed via acl_free.
+        """
         from sys import stderr as ref_file
         self.type = acltype
         self._link = follow_links
+        cdef defs.acl_type_t aclt
+        cdef char *fn
+        cdef int fd
+        aclt = acltype
 
         if file:
             self.fobj = file
 
-        if self.fobj and text:
-            raise ValueError("Only one of file/path and text may be given")
-
         if self.fobj:
             if isinstance(self.fobj, str):
+                fn = self.fobj
                 if self._link:
-                    self.acl = defs.acl_get_link_np(self.fobj.encode('utf8'), acltype)
+                    with nogil:
+                        self.acl = defs.acl_get_link_np(fn, aclt)
                 else:
-                    self.acl = defs.acl_get_file(self.fobj.encode('utf8'), acltype)
+                    with nogil:
+                        self.acl = defs.acl_get_file(fn, aclt)
 
             elif type(self.fobj) is type(ref_file):
-                self.acl = defs.acl_get_fd_np(self.fobj.fileno(), acltype)
+                fd = self.fobj.fileno()
+                with nogil:
+                    self.acl = defs.acl_get_fd_np(fd, aclt)
             elif type(self.fobj) is int:
-                self.acl = defs.acl_get_fd_np(self.fobj, acltype)
+                fd = self.fobj
+                with nogil:
+                    self.acl = defs.acl_get_fd_np(fd, aclt)
             else:
                 raise ValueError("Invalid type for path")
 
-            return
+            if self.acl is None:
+                raise OSError(errno, os.strerror(errno))
 
-        if text:
-            self.text = text
             return
 
         self.acl = defs.acl_init(0)
@@ -148,37 +162,59 @@ cdef class ACL(object):
 
     def apply(self, file=None):
         from sys import stderr as ref_file
-        
+        cdef int rv, fd
+        cdef defs.acl_type_t aclt
+        cdef defs.acl_t newacl
+        cdef char *fn
+
         if not file and self.fobj:
             file = self.fobj
 
         if not file:
             raise ValueError('Please specify path')
 
+        aclt = self.type
+        newacl = self.acl
+
         if isinstance(file, str):
+            fn = file
             if self._link:
-                rv = defs.acl_set_link_np(file.encode('utf-8', 'surrogateescape'), self.type, self.acl)
+                with nogil:
+                    rv = defs.acl_set_link_np(fn, aclt, newacl)
             else:
-                rv = defs.acl_set_file(file.encode('utf-8', 'surrogateescape'), self.type, self.acl)
+                with nogil:
+                    rv = defs.acl_set_file(fn, aclt, newacl)
+
         elif type(file) is type(ref_file):
-            rv = defs.acl_set_fd_np(file.fileno(), self.acl, self.type)
+            fd = file.fileno()
+            with nogil:
+                rv = defs.acl_set_fd_np(fd, newacl, aclt)
+
         elif type(file) is int:
-            rv = defs.acl_set_fd_np(file, self.acl, self.type)
+            fd = file
+            with nogil:
+                rv = defs.acl_set_fd_np(fd, newacl, aclt)
         else:
             raise ValueError("Invalid type for file parameter")
-        
+
         if rv != 0:
             raise OSError(errno, os.strerror(errno))
 
     def add(self, index=None):
+        cdef int rv, idx
         cdef ACLEntry ret
         cdef defs.acl_entry_t entry
 
         if index:
-            if defs.acl_create_entry_np(&self.acl, &entry, index) != 0:
+            idx = index
+            with nogil:
+                rv = defs.acl_create_entry_np(&self.acl, &entry, idx)
+            if rv != 0:
                 raise OSError(errno, os.strerror(errno))
         else:
-            if defs.acl_create_entry(&self.acl, &entry) != 0:
+            with nogil:
+                rv = defs.acl_create_entry(&self.acl, &entry)
+            if rv != 0:
                 raise OSError(errno, os.strerror(errno))
 
         ret = ACLEntry.__new__(ACLEntry)
@@ -196,9 +232,12 @@ cdef class ACL(object):
 
     property brand:
         def __get__(self):
-            cdef int brand
+            cdef int brand, ret
 
-            if defs.acl_get_brand_np(self.acl, &brand) != 0:
+            with nogil:
+                ret = defs.acl_get_brand_np(self.acl, &brand)
+
+            if ret != 0:
                 raise OSError(errno, os.strerror(errno))
 
             return ACLBrand(brand)
@@ -210,7 +249,8 @@ cdef class ACL(object):
             cdef int err
 
             result = []
-            err = defs.acl_get_entry(self.acl, defs.ACL_FIRST_ENTRY, &entry)
+            with nogil:
+                err = defs.acl_get_entry(self.acl, defs.ACL_FIRST_ENTRY, &entry)
             if err != 1:
                 return []
 
@@ -219,27 +259,45 @@ cdef class ACL(object):
                 ret.parent = self
                 ret.entry = entry
                 result.append(ret)
-
-                err = defs.acl_get_entry(self.acl, defs.ACL_NEXT_ENTRY, &entry)
+                with nogil:
+                    err = defs.acl_get_entry(self.acl, defs.ACL_NEXT_ENTRY, &entry)
                 if err != 1:
                     break
 
             return result
 
-    property text:
-        def __get__(self):
-            cdef char *text = defs.acl_to_text(self.acl, NULL)
-
-            ret = text.decode('utf8')
-            defs.acl_free(<void *>text)
-            return ret
-
-        def __set__(self, text):
-            self.acl = defs.acl_from_text(text)
-
     property valid:
         def __get__(self):
-            if defs.acl_valid(self.acl) != 0:
+            """
+            Original version used acl_valid(), returns -1 with errno EINVAL if brand is not ACL_BRAND_POSIX
+            we should use acl_valid_fd_np(), acl_valid_file_np(), etc to allow ACL_BRAND_NFS4
+            """
+            cdef int ret, fd
+            cdef char *fn
+            cdef defs.acl_type_t aclt
+            aclt = self.acltype
+            from sys import stderr as ref_file
+
+            if isinstance(self.fobj, str):
+                fn = self.fobj
+                if self._link:
+                    with nogil:
+                        ret = defs.acl_valid_link_np(fn, aclt, self.acl)
+                else:
+                    with nogil:
+                        ret = defs.acl_valid_file_np(fn, aclt, self.acl)
+            elif type(self.fobj) is type(ref_file):
+                fd = self.fobj.fileno()
+                with nogil:
+                    ret = defs.acl_valid_fd_np(fd, aclt, self.acl)
+            elif type(self.fobj) is int:
+                fd = self.fobj
+                with nogil:
+                    ret = defs.acl_valid_fd_np(fd, aclt, self.acl)
+            else:
+                raise ValueError("Invalid type for path")
+
+            if ret == 0:
                 return True
 
             return False
@@ -259,53 +317,55 @@ cdef class ACLEntry(object):
         return {
             'tag': self.tag.name,
             'id': self.id,
-            'name': self.name,
             'type': self.type.name,
             'perms': {k.name: v for k, v in self.perms.items()},
             'flags': {k.name: v for k, v in self.flags.items()},
-            'text': self.text
         }
 
     def __setstate__(self, obj):
-        if 'text' in obj:
-            self.text = obj['text']
+        if 'tag' in obj:
+            self.tag = obj['tag']
 
-        if 'id' in obj:
+        if obj.get('id') is not None:
             self.id = obj['id']
-
-        if 'name' in obj:
-            self.name = obj['name']
 
         if 'type' in obj:
             self.type = obj['type']
 
         if 'perms' in obj:
-            for k, v in obj['perms']:
-                self.perms[k] = v
+            self.perms = obj['perms']
 
         if 'flags' in obj:
-            for k, v in obj['flags']:
-                self.flags[k] = v
-
+            self.flags = obj['flags']
 
     def delete(self):
-        if defs.acl_delete_entry(self.parent.acl, self.entry) != 0:
+        cdef int ret
+        with nogil:
+            ret = defs.acl_delete_entry(self.parent.acl, self.entry)
+        if ret != 0:
             raise OSError(errno, os.strerror(errno))
 
     property tag:
         def __get__(self):
+            cdef int rv
             cdef defs.acl_tag_t tag
 
-            if defs.acl_get_tag_type(self.entry, &tag) != 0:
+            with nogil:
+                rv = defs.acl_get_tag_type(self.entry, &tag)
+
+            if rv != 0:
                 raise OSError(errno, os.strerror(errno))
 
             return ACLEntryTag(tag)
 
         def __set__(self, value):
+            cdef int rv
             cdef defs.acl_tag_t tag
+            tag = ACLEntryTag[value]
 
-            tag = value.value
-            if defs.acl_set_tag_type(self.entry, tag) != 0:
+            with nogil:
+                rv = defs.acl_set_tag_type(self.entry, tag)
+            if rv != 0:
                 raise OSError(errno, os.strerror(errno))
 
     property id:
@@ -314,54 +374,34 @@ cdef class ACLEntry(object):
 
             if self.tag not in (ACLEntryTag.USER, ACLEntryTag.GROUP):
                 return None
-
-            qualifier = <int*>defs.acl_get_qualifier(self.entry)
+            with nogil:
+                qualifier = <int*>defs.acl_get_qualifier(self.entry)
             if qualifier is NULL:
                 raise OSError(errno, os.strerror(errno))
 
             return qualifier[0]
 
         def __set__(self, value):
+            cdef int rv
             cdef int qualifier = value
 
             if self.tag not in (ACLEntryTag.USER, ACLEntryTag.GROUP):
                 raise ValueError('Cannot set id on ACL of that type')
 
-            if defs.acl_set_qualifier(self.entry, &qualifier) != 0:
+            with nogil:
+                rv = defs.acl_set_qualifier(self.entry, &qualifier)
+            if rv != 0:
                 raise OSError(errno, os.strerror(errno))
-
-    property name:
-        def __get__(self):
-            try:
-                if self.tag == ACLEntryTag.USER:
-                    return pwd.getpwuid(self.id).pw_name
-
-                if self.tag == ACLEntryTag.GROUP:
-                    return grp.getgrgid(self.id).gr_name
-            except KeyError:
-                return None
-
-            return None
-
-        def __set__(self, value):
-            if self.tag == ACLEntryTag.USER:
-                uid = pwd.getpwnam(value.encode('utf8')).pw_uid
-                self.id = uid
-                return
-
-            if self.tag == ACLEntryTag.GROUP:
-                gid = pwd.getpwnam(value.encode('utf8')).pw_gid
-                self.id = gid
-                return
-
-            raise ValueError('Cannot set name on ACL of that type')
 
     property perms:
         def __get__(self):
+            cdef int rv
             cdef ACLPermissionSet result
             cdef defs.acl_permset_t permset
 
-            if defs.acl_get_permset(self.entry, &permset) != 0:
+            with nogil:
+                rv = defs.acl_get_permset(self.entry, &permset)
+            if rv != 0:
                 raise OSError(errno, os.strerror(errno))
 
             if self.parent.brand == ACLBrand.NFS4:
@@ -377,15 +417,33 @@ cdef class ACLEntry(object):
 
             return result
 
-        def __set__(self, ACLPermissionSet value):
-            pass
+        def __set__(self, value):
+            cdef int rv
+            cdef defs.acl_perm_t perm
+            cdef defs.acl_permset_t permset
+
+            with nogil:
+                rv = defs.acl_get_permset(self.entry, &permset)
+            if rv != 0:
+                raise OSError(errno, os.strerror(errno))
+
+            for k, v in value.items():
+                if v:
+                    perm = NFS4Perm[k]
+                    with nogil:
+                        rv = defs.acl_add_perm(permset, perm)
+                    if rv != 0:
+                        raise OSError(errno, os.strerror(errno))
 
     property flags:
         def __get__(self):
+            cdef int rv
             cdef ACLFlagSet result
             cdef defs.acl_flagset_t flagset
 
-            if defs.acl_get_flagset_np(self.entry, &flagset) != 0:
+            with nogil:
+                rv = defs.acl_get_flagset_np(self.entry, &flagset)
+            if rv != 0:
                 raise OSError(errno, os.strerror(errno))
 
             result = ACLFlagSet.__new__(ACLFlagSet)
@@ -393,107 +451,92 @@ cdef class ACLEntry(object):
             result.parent = self
             return result
 
-        def __set__(self, ACLFlagSet value):
-            pass
+        def __set__(self, value):
+            cdef int rv
+            cdef defs.acl_flag_t flag
+            cdef defs.acl_flagset_t flagset
+            with nogil:
+                rv = defs.acl_get_flagset_np(self.entry, &flagset)
+            if rv != 0:
+                raise OSError(errno, os.strerror(errno))
+
+            for k, v in value.items():
+                if v:
+                    flag = NFS4Flag[k]
+                    with nogil:
+                        rv = defs.acl_add_flag_np(flagset, flag)
+                    if rv != 0:
+                        raise OSError(errno, os.strerror(errno))
 
     property type:
         def __get__(self):
+            cdef int rv
             cdef defs.acl_entry_type_t typ
 
-            if defs.acl_get_entry_type_np(self.entry, &typ) != 0:
+            with nogil:
+                rv = defs.acl_get_entry_type_np(self.entry, &typ)
+            if rv != 0:
                 raise OSError(errno, os.strerror(errno))
 
             return ACLEntryType(typ)
 
         def __set__(self, value):
-            pass
+            cdef int rv
+            cdef int acl_type
+            if ACLEntryType[value] not in (ACLEntryType.ALLOW, ACLEntryType.DENY):
+                raise ValueError('Unsupported ACL type.')
 
-    property text:
-        def __get__(self):
-            cdef defs.acl_t acl
-            cdef defs.acl_entry_t entry
-            cdef char* result
+            acl_type = ACLEntryType[value]
 
-            acl = defs.acl_init(0)
-
-            if <void*>acl == NULL:
+            with nogil:
+                rv = defs.acl_set_entry_type_np(self.entry, acl_type)
+            if rv != 0:
                 raise OSError(errno, os.strerror(errno))
-
-            if defs.acl_create_entry(&acl, &entry) != 0:
-                defs.acl_free(<void*>acl)
-                raise OSError(errno, os.strerror(errno))
-
-            if defs.acl_copy_entry(entry, self.entry) != 0:
-                defs.acl_free(<void*>acl)
-                raise OSError(errno, os.strerror(errno))
-
-            result = defs.acl_to_text(acl, NULL)
-            if result == NULL:
-                defs.acl_free(<void*>acl)
-                raise OSError(errno, os.strerror(errno))
-
-            ret = result.decode('utf8').strip()
-            defs.acl_free(<void *>result)
-            defs.acl_free(<void*>acl)
-            return ret
-
-        def __set__(self, value):
-            cdef defs.acl_t acl
-            cdef defs.acl_entry_t entry
-            cdef int brand
-
-            acl = defs.acl_from_text(value.encode('utf8'))
-
-            if <void*>acl == NULL:
-                raise OSError(errno, os.strerror(errno))
-
-            if defs.acl_get_entry(acl, defs.ACL_FIRST_ENTRY, &entry) == -1:
-                defs.acl_free(<void*>acl)
-                raise OSError(errno, os.strerror(errno))
-
-            if defs.acl_get_brand_np(acl, &brand) != 0:
-                defs.acl_free(<void*>acl)
-                raise OSError(errno, os.strerror(errno))
-
-            if defs.acl_copy_entry(self.entry, entry) != 0:
-                defs.acl_free(<void*>acl)
-                raise OSError(errno, os.strerror(errno))
-
-            defs.acl_free(<void*>acl)
 
 
 cdef class ACLPermissionSet(object):
     cdef defs.acl_permset_t permset
     cdef readonly ACLEntry parent
     cdef object perm_enum
-
-    def __init__(self):
-        self.permset = <defs.acl_permset_t>malloc(cython.sizeof(defs.acl_permset_t))
+    cdef int rv
 
     def __getitem__(self, item):
+        cdef defs.acl_perm_t perm
         if isinstance(item, str):
             item = getattr(self.perm_enum, item)
 
         if item not in self.perm_enum:
             raise KeyError('Invalid permission identifier')
 
-        return <bint>defs.acl_get_perm_np(self.permset, item.value)
+        perm = item.value
+        with nogil:
+            rv = defs.acl_get_perm_np(self.permset, perm)
+        if rv == -1:
+            raise OSError(errno, os.strerror(errno))
+
+        return <bint>rv
 
     def __setitem__(self, key, value):
+        cdef defs.acl_perm_t perm
         if isinstance(key, str):
             key = getattr(self.perm_enum, key)
 
         if key not in self.perm_enum:
             raise KeyError('Invalid permission identifier')
 
+        perm = key.value
         if value is True:
-            if defs.acl_add_perm(self.permset, key.value) != 0:
+            with nogil:
+                rv = defs.acl_add_perm(self.permset, perm)
+            if rv != 0:
                 raise OSError(errno, os.strerror(errno))
 
             return
 
         if value is False:
-            if defs.acl_delete_perm(self.permset, key.value) != 0:
+            with nogil:
+                rv = defs.acl_delete_perm(self.permset, perm)
+            if rv != 0:
                 raise OSError(errno, os.strerror(errno))
 
             return
@@ -504,7 +547,9 @@ cdef class ACLPermissionSet(object):
         return iter(self.perm_enum)
 
     def clear(self):
-        if defs.acl_clear_perms(self.permset) != 0:
+        with nogil:
+            rv = defs.acl_clear_perms(self.permset)
+        if rv != 0:
             raise OSError(errno, os.strerror(errno))
 
     def keys(self):
@@ -518,31 +563,45 @@ cdef class ACLPermissionSet(object):
 cdef class ACLFlagSet(object):
     cdef defs.acl_flagset_t flagset
     cdef readonly ACLEntry parent
+    cdef int rv
 
     def __getitem__(self, item):
+        cdef defs.acl_flag_t flag
         if isinstance(item, str):
             item = getattr(NFS4Flag, item)
 
         if item not in NFS4Flag:
             raise KeyError('Invalid flag')
 
-        return <bint>defs.acl_get_flag_np(self.flagset, item.value)
+        flag = item.value
+        with nogil:
+            rv = defs.acl_get_flag_np(self.flagset, flag)
+        if rv == -1:
+            raise OSError(errno, os.strerror(errno))
+
+        return <bint>rv
 
     def __setitem__(self, key, value):
+        cdef defs.acl_flag_t flag
         if isinstance(key, str):
             key = getattr(NFS4Flag, key)
 
         if key not in NFS4Flag:
             raise KeyError('Invalid flag')
 
+        flag = key.value
         if value is True:
-            if defs.acl_add_flag_np(self.flagset, key.value) != 0:
+            with nogil:
+                rv = defs.acl_add_flag_np(self.flagset, flag)
+            if rv != 0:
                 raise OSError(errno, os.strerror(errno))
 
             return
 
         if value is False:
-            if defs.acl_delete_flag_np(self.flagset, key.value) != 0:
+            with nogil:
+                rv = defs.acl_delete_flag_np(self.flagset, flag)
+            if rv != 0:
                 raise OSError(errno, os.strerror(errno))
 
             return
@@ -553,7 +612,9 @@ cdef class ACLFlagSet(object):
         return iter(NFS4Flag)
 
     def clear(self):
-        if defs.acl_clear_flags_np(self.flagset) != 0:
+        with nogil:
+            rv = defs.acl_clear_flags_np(self.flagset)
+        if rv != 0:
             raise OSError(errno, os.strerror(errno))
 
     def keys(self):
