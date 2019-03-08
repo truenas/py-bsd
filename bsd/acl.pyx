@@ -113,8 +113,8 @@ cdef class ACL(object):
         self.type = acltype
         self._link = follow_links
         cdef defs.acl_type_t aclt
-        cdef char *fn
         cdef int fd
+        cdef char *fn
         aclt = acltype
 
         if file:
@@ -122,7 +122,8 @@ cdef class ACL(object):
 
         if self.fobj:
             if isinstance(self.fobj, str):
-                fn = self.fobj
+                file = file.encode('UTF-8')
+                fn = file 
                 if self._link:
                     with nogil:
                         self.acl = defs.acl_get_link_np(fn, aclt)
@@ -177,6 +178,7 @@ cdef class ACL(object):
         newacl = self.acl
 
         if isinstance(file, str):
+            file = file.encode('UTF-8')
             fn = file
             if self._link:
                 with nogil:
@@ -230,6 +232,43 @@ cdef class ACL(object):
         while len(self.entries) > 0:
             self.delete(0)
 
+    def strip(self):
+        """
+        Strip extended ACL entries from the ACL. acl_strip_np() allocates
+        memory. Free the memory of the original ACL before updating self.acl.
+        Returns a pointer to a trivial ACL computed from initial ACL.
+        ACL is trivial if it can be fully expressed as a file mode without losing
+        any access rules.
+        """
+        cdef int rv
+        cdef defs.acl_t newacl 
+        with nogil:
+            newacl = defs.acl_strip_np(self.acl, True)
+        if newacl is None: 
+            raise OSError(errno, os.strerror(errno))
+
+        with nogil:
+            rv = defs.acl_free(<void *>self.acl)
+        if rv != 0:
+            raise OSError(errno, os.strerror(errno))
+
+        self.acl = newacl
+
+    property is_trivial:
+        def __get__(self):
+            """
+            ACL is trivial if it can be fully expressed as a file mode without losing
+            any access rules.
+            """
+            cdef int rv
+            cdef int trivial
+            with nogil:
+                rv = defs.acl_is_trivial_np(self.acl, &trivial)
+            if rv != 0:
+                raise OSError(errno, os.strerror(errno))
+
+            return <bint>trivial
+
     property brand:
         def __get__(self):
             cdef int brand, ret
@@ -266,20 +305,23 @@ cdef class ACL(object):
 
             return result
 
-    property valid:
+    property is_valid:
         def __get__(self):
             """
             Original version used acl_valid(), returns -1 with errno EINVAL if brand is not ACL_BRAND_POSIX
             we should use acl_valid_fd_np(), acl_valid_file_np(), etc to allow ACL_BRAND_NFS4
+            zfs_freebsd_aclcheck() always returns EOPNOTSUPP. This may change in the future, but for now 
+            we return True in this case.
             """
             cdef int ret, fd
             cdef char *fn
             cdef defs.acl_type_t aclt
-            aclt = self.acltype
+            aclt = self.type
             from sys import stderr as ref_file
 
             if isinstance(self.fobj, str):
-                fn = self.fobj
+                file = self.fobj.encode('UTF-8')
+                fn = file 
                 if self._link:
                     with nogil:
                         ret = defs.acl_valid_link_np(fn, aclt, self.acl)
@@ -295,12 +337,12 @@ cdef class ACL(object):
                 with nogil:
                     ret = defs.acl_valid_fd_np(fd, aclt, self.acl)
             else:
-                raise ValueError("Invalid type for path")
+                raise ValueError("ACL validation requires a file path or fd.")
 
-            if ret == 0:
-                return True
+            if ret != 0 and errno != 45:
+                raise OSError(errno, os.strerror(errno))
 
-            return False
+            return True 
 
 
 cdef class ACLEntry(object):
