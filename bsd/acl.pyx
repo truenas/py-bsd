@@ -56,6 +56,14 @@ class ACLEntryTag(enum.IntEnum):
     EVERYONE = defs.ACL_EVERYONE
 
 
+class ACLWho(enum.Enum):
+    USER_OBJ = 'owner@'
+    GROUP_OBJ = 'group@'
+    EVERYONE = 'everyone@'
+    USER = 'USER'
+    GROUP = 'GROUP'
+
+
 class ACLEntryType(enum.IntEnum):
     ALLOW = defs.ACL_ENTRY_TYPE_ALLOW
     DENY = defs.ACL_ENTRY_TYPE_DENY
