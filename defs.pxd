@@ -554,7 +554,6 @@ cdef extern from "sys/acl.h" nogil:
         ACL_ADD_SUBDIRECTORY
         ACL_READ_NAMED_ATTRS
         ACL_WRITE_NAMED_ATTRS
-        ACL_EXECUTE
         ACL_DELETE_CHILD
         ACL_READ_ATTRIBUTES
         ACL_WRITE_ATTRIBUTES
@@ -563,6 +562,10 @@ cdef extern from "sys/acl.h" nogil:
         ACL_WRITE_ACL
         ACL_WRITE_OWNER
         ACL_SYNCHRONIZE
+        ACL_READ_SET
+        ACL_WRITE_SET
+        ACL_MODIFY_SET
+        ACL_FULL_SET
 
     ctypedef struct acl_t:
         pass
