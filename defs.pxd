@@ -319,7 +319,6 @@ cdef extern from "libprocstat.h" nogil:
         PS_FST_TYPE_PIPE
         PS_FST_TYPE_PTS
         PS_FST_TYPE_KQUEUE
-        PS_FST_TYPE_CRYPTO
         PS_FST_TYPE_MQUEUE
         PS_FST_TYPE_SHM
         PS_FST_TYPE_SEM
