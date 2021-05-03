@@ -78,7 +78,6 @@ class DescriptorType(enum.IntEnum):
     PIPE = defs.PS_FST_TYPE_PIPE
     PTS = defs.PS_FST_TYPE_PTS
     KQUEUE = defs.PS_FST_TYPE_KQUEUE
-    CRYPTO = defs.PS_FST_TYPE_CRYPTO
     MQUEUE = defs.PS_FST_TYPE_MQUEUE
     SHM = defs.PS_FST_TYPE_SHM
     SEM = defs.PS_FST_TYPE_SEM
