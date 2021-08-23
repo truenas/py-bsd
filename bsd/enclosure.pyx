@@ -186,12 +186,7 @@ cdef class Enclosure(object):
             free(elm_info[i].elm_devnames)
 
             enc_info['elements'].update({
-                idx: {
-                'type': _type,
-                'status': status,
-                'descriptor': desc.strip(),
-                'dev': dev,
-                }
+                idx: {'type': _type, 'status': status, 'descriptor': desc.strip(), 'dev': dev}
             })
 
         with nogil:
