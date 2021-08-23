@@ -79,6 +79,10 @@ extensions = [
         "bsd.threading",
         ["bsd/threading.pyx"],
     ),
+    Extension(
+        "bsd.enclosure",
+        ["bsd/enclosure.pyx"],
+    ),
 ]
 
 
