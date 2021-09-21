@@ -129,7 +129,6 @@ cdef class Enclosure(object):
                         # so we ignore the returned value
                         ioctl(self.enc_fd, ses.ENCIOC_GETELMDEVNAMES, <ses.caddr_t>&objdn)
 
-
             enc_info = {
                 'name': '',
                 'id': '',
