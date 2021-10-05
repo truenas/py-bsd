@@ -83,6 +83,10 @@ extensions = [
         "bsd.enclosure",
         ["bsd/enclosure.pyx"],
     ),
+    Extension(
+        "bsd.disk",
+        ["bsd/disk.pyx"],
+    ),
 ]
 
 
