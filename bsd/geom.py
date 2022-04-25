@@ -281,4 +281,6 @@ def provider_by_id(ident):
 
 
 # Do initial scan at module load time
-scan()
+# Yeah, no, don't do this. On a large system, it was discovered
+# this module was using ~24MB of resident memory. (tested on ~1240 disk system)
+# scan()
