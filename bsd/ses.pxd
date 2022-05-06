@@ -4,18 +4,6 @@ from cython import size_t
 from libc.stdint cimport uint8_t, uint16_t
 
 
-# used to store the elements related
-# information all at once so we dont
-# have to drop/reacquire the GIL for
-# each element detected in an enclosure
-cdef struct elm_info_t:
-    unsigned int idx  # element index
-    unsigned char cstat[4]  # element status
-    char * elm_desc_str  # element descriptor
-    char * elm_devnames  # devices attached to element
-    elm_type_t elm_type
-
-
 cdef extern from "sys/types.h":
     ctypedef long caddr_t
     ctypedef unsigned char u_char
